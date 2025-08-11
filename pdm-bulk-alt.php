@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: PDM Bulk Alt
- * Description: Enable add/edit image alt tags from media library list view
+ * Description: Streamline your website's accessibility and SEO with powerful alt tag management. Edit alt tags directly from the media library list view and automatically scan your entire website to set missing alt tags from media library values. Supports all themes, page builders (Divi, Elementor, etc.), and post types with intelligent detection and bulk updates.
  * Version: 1.0.0
  * Author: Omar Faruk and PDM Team
  * Author URI: https://www.purelydigitalmarketing.com/
