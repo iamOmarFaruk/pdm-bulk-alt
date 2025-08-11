@@ -187,6 +187,7 @@
         html += '<th>Page/Post</th>';
         html += '<th>Type</th>';
         html += '<th>Image</th>';
+        html += '<th>Image Type</th>';
         html += '<th>Original Alt</th>';
         html += '<th>Alt Text Added</th>';
         html += '<th>Status</th>';
@@ -217,6 +218,15 @@
                     html += '<td>';
                     html += '<img src="' + image.src + '" class="pdm-image-preview" alt="" onerror="this.style.display=\'none\'">';
                     html += '<br><small>' + image.src.split('/').pop() + '</small>';
+                    html += '</td>';
+                    
+                    // Image type
+                    html += '<td>';
+                    if (image.type === 'divi') {
+                        html += '<span style="color: #7c3aed; font-weight: 600;">Divi Shortcode</span>';
+                    } else {
+                        html += '<span style="color: #059669; font-weight: 600;">HTML Tag</span>';
+                    }
                     html += '</td>';
                     
                     // Original alt

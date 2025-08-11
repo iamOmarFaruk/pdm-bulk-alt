@@ -126,27 +126,41 @@ class PDM_Bulk_Alt_Scanner {
         foreach ($posts as $post) {
             $post_content = $post->post_content;
             
+            // Check if Divi theme is active
+            $is_divi_theme = $this->is_divi_theme_active();
+            $is_divi_post = get_post_meta($post->ID, '_et_pb_use_builder', true) === 'on';
+            
             // Get content from page builders and meta fields
             $meta_content = $this->get_page_builder_content($post->ID);
             $full_content = $post_content . ' ' . $meta_content;
             
-            // For Divi, we need to check if it's enabled and handle content differently
-            $is_divi = get_post_meta($post->ID, '_et_pb_use_builder', true) === 'on';
+            $post_images = array();
+            $updated_content = $post_content;
+            $content_changed = false;
             
-            // Find all img tags without alt or with empty alt
+            // Handle Divi shortcodes if Divi theme is active
+            if ($is_divi_theme && $is_divi_post) {
+                error_log("PDM Debug: Processing Divi post ID: " . $post->ID);
+                $divi_results = $this->process_divi_shortcodes($post_content, $post->ID);
+                if ($divi_results['content_changed']) {
+                    $updated_content = $divi_results['updated_content'];
+                    $content_changed = true;
+                    $post_images = array_merge($post_images, $divi_results['images']);
+                    $images_found += count($divi_results['images']);
+                    $images_updated += count(array_filter($divi_results['images'], function($img) { return $img['success']; }));
+                }
+            }
+            
+            // Also process regular HTML img tags
             preg_match_all('/<img[^>]*>/i', $full_content, $matches);
             
             if (!empty($matches[0])) {
-                $post_images = array();
-                $updated_content = $post_content;
-                $content_changed = false;
-                
                 foreach ($matches[0] as $img_tag) {
                     $image_data = $this->parse_image_tag($img_tag);
                     
                     if ($image_data) {
                         // Debug: Let's check what we're finding
-                        error_log("PDM Debug: Post ID: " . $post->ID . " (" . $post->post_type . ") - Image found - src: " . $image_data['src'] . ", has_alt: " . ($image_data['has_alt'] ? 'true' : 'false') . ", alt_value: '" . $image_data['alt_value'] . "'");
+                        error_log("PDM Debug: Post ID: " . $post->ID . " (" . $post->post_type . ") - HTML Image found - src: " . $image_data['src'] . ", has_alt: " . ($image_data['has_alt'] ? 'true' : 'false') . ", alt_value: '" . $image_data['alt_value'] . "'");
                         
                         // Check if this image needs alt text (either no alt or empty alt)
                         if (!$image_data['has_alt']) {
@@ -168,22 +182,24 @@ class PDM_Bulk_Alt_Scanner {
                                         $content_changed = true;
                                         $images_updated++;
                                         
-                                        error_log("PDM Debug: Updated image tag successfully");
+                                        error_log("PDM Debug: Updated HTML image tag successfully");
                                         
                                         $post_images[] = array(
                                             'src' => $image_data['src'],
                                             'alt_added' => $alt_text,
                                             'success' => true,
-                                            'original_alt' => $image_data['alt_value']
+                                            'original_alt' => $image_data['alt_value'],
+                                            'type' => 'html'
                                         );
                                     } else {
-                                        error_log("PDM Debug: Failed to update image tag");
+                                        error_log("PDM Debug: Failed to update HTML image tag");
                                         $post_images[] = array(
                                             'src' => $image_data['src'],
                                             'alt_added' => '',
                                             'success' => false,
                                             'reason' => __('Could not update image tag', 'pdm-bulk-alt'),
-                                            'original_alt' => $image_data['alt_value']
+                                            'original_alt' => $image_data['alt_value'],
+                                            'type' => 'html'
                                         );
                                     }
                                 } else {
@@ -193,7 +209,8 @@ class PDM_Bulk_Alt_Scanner {
                                         'alt_added' => '',
                                         'success' => false,
                                         'reason' => __('No alt text in media library', 'pdm-bulk-alt'),
-                                        'original_alt' => $image_data['alt_value']
+                                        'original_alt' => $image_data['alt_value'],
+                                        'type' => 'html'
                                     );
                                 }
                             } else {
@@ -203,51 +220,52 @@ class PDM_Bulk_Alt_Scanner {
                                     'alt_added' => '',
                                     'success' => false,
                                     'reason' => __('Image not found in media library', 'pdm-bulk-alt'),
-                                    'original_alt' => $image_data['alt_value']
+                                    'original_alt' => $image_data['alt_value'],
+                                    'type' => 'html'
                                 );
                             }
                         }
                         // If image already has meaningful alt text, we skip it (don't add to results)
                     }
                 }
+            }
+            
+            // Update post content if changes were made
+            if ($content_changed && !empty($post_images)) {
+                $update_result = wp_update_post(array(
+                    'ID' => $post->ID,
+                    'post_content' => $updated_content
+                ));
                 
-                // Update post content if changes were made
-                if ($content_changed && !empty($post_images)) {
-                    $update_result = wp_update_post(array(
-                        'ID' => $post->ID,
-                        'post_content' => $updated_content
-                    ));
-                    
-                    if ($is_divi && $update_result) {
-                        // For Divi, also clear the cache
-                        if (function_exists('et_core_page_resource_remove_all')) {
-                            et_core_page_resource_remove_all($post->ID, 'all');
-                        }
-                        
-                        // Update Divi's old content backup as well
-                        update_post_meta($post->ID, '_et_pb_old_content', $updated_content);
-                        
-                        // Clear Divi static CSS cache
-                        if (class_exists('ET_Core_PageResource')) {
-                            ET_Core_PageResource::remove_static_resources('all', $post->ID);
-                        }
-                        
-                        // Trigger Divi cache clearing hooks
-                        do_action('et_builder_cache_purge_request', $post->ID);
+                if ($is_divi_post && $update_result) {
+                    // For Divi, also clear the cache
+                    if (function_exists('et_core_page_resource_remove_all')) {
+                        et_core_page_resource_remove_all($post->ID, 'all');
                     }
                     
-                    error_log("PDM Debug: Post content updated for post ID: " . $post->ID . ", Divi: " . ($is_divi ? 'yes' : 'no'));
+                    // Update Divi's old content backup as well
+                    update_post_meta($post->ID, '_et_pb_old_content', $updated_content);
                     
-                    $results[] = array(
-                        'post_id' => $post->ID,
-                        'post_title' => $post->post_title,
-                        'post_type' => $post->post_type,
-                        'post_url' => get_permalink($post->ID),
-                        'images' => $post_images,
-                        'updated_count' => count(array_filter($post_images, function($img) { return $img['success']; })),
-                        'is_divi' => $is_divi
-                    );
+                    // Clear Divi static CSS cache
+                    if (class_exists('ET_Core_PageResource')) {
+                        ET_Core_PageResource::remove_static_resources('all', $post->ID);
+                    }
+                    
+                    // Trigger Divi cache clearing hooks
+                    do_action('et_builder_cache_purge_request', $post->ID);
                 }
+                
+                error_log("PDM Debug: Post content updated for post ID: " . $post->ID . ", Divi: " . ($is_divi_post ? 'yes' : 'no'));
+                
+                $results[] = array(
+                    'post_id' => $post->ID,
+                    'post_title' => $post->post_title,
+                    'post_type' => $post->post_type,
+                    'post_url' => get_permalink($post->ID),
+                    'images' => $post_images,
+                    'updated_count' => count(array_filter($post_images, function($img) { return $img['success']; })),
+                    'is_divi' => $is_divi_post
+                );
             }
         }
         
@@ -498,6 +516,165 @@ class PDM_Bulk_Alt_Scanner {
         }
         
         return $attachment_id;
+    }
+    
+    /**
+     * Check if Divi theme is active
+     */
+    private function is_divi_theme_active() {
+        $theme = wp_get_theme();
+        $parent_theme = $theme->get('Template');
+        $current_theme = $theme->get_stylesheet();
+        
+        // Check if current theme or parent theme is Divi
+        return (
+            $current_theme === 'Divi' || 
+            $parent_theme === 'Divi' || 
+            strpos($current_theme, 'divi') !== false || 
+            strpos($parent_theme, 'divi') !== false ||
+            function_exists('et_setup_theme') ||
+            defined('ET_BUILDER_VERSION')
+        );
+    }
+    
+    /**
+     * Process Divi shortcodes and update alt tags
+     */
+    private function process_divi_shortcodes($content, $post_id) {
+        $updated_content = $content;
+        $content_changed = false;
+        $images = array();
+        
+        // Find all et_pb_image shortcodes
+        preg_match_all('/\[et_pb_image[^\]]*\]/i', $content, $matches);
+        
+        if (!empty($matches[0])) {
+            foreach ($matches[0] as $shortcode) {
+                error_log("PDM Debug: Found Divi shortcode: " . $shortcode);
+                
+                // Parse shortcode attributes
+                $shortcode_data = $this->parse_divi_image_shortcode($shortcode);
+                
+                if ($shortcode_data && !empty($shortcode_data['src'])) {
+                    // Check if alt is missing or empty
+                    $needs_alt = empty($shortcode_data['alt']) || trim($shortcode_data['alt']) === '';
+                    
+                    error_log("PDM Debug: Divi image - src: " . $shortcode_data['src'] . ", alt: '" . $shortcode_data['alt'] . "', needs_alt: " . ($needs_alt ? 'yes' : 'no'));
+                    
+                    if ($needs_alt) {
+                        // Try to get attachment ID and alt text
+                        $attachment_id = $this->get_attachment_id_from_url($shortcode_data['src']);
+                        
+                        if ($attachment_id) {
+                            $alt_text = get_post_meta($attachment_id, '_wp_attachment_image_alt', true);
+                            
+                            error_log("PDM Debug: Divi - Found attachment ID: " . $attachment_id . ", alt text: '" . $alt_text . "'");
+                            
+                            if (!empty($alt_text)) {
+                                // Update the shortcode with alt text
+                                $new_shortcode = $this->add_alt_to_divi_shortcode($shortcode, $alt_text);
+                                
+                                if ($new_shortcode !== $shortcode) {
+                                    $updated_content = str_replace($shortcode, $new_shortcode, $updated_content);
+                                    $content_changed = true;
+                                    
+                                    error_log("PDM Debug: Updated Divi shortcode successfully");
+                                    
+                                    $images[] = array(
+                                        'src' => $shortcode_data['src'],
+                                        'alt_added' => $alt_text,
+                                        'success' => true,
+                                        'original_alt' => $shortcode_data['alt'],
+                                        'type' => 'divi'
+                                    );
+                                } else {
+                                    error_log("PDM Debug: Failed to update Divi shortcode");
+                                    $images[] = array(
+                                        'src' => $shortcode_data['src'],
+                                        'alt_added' => '',
+                                        'success' => false,
+                                        'reason' => __('Could not update Divi shortcode', 'pdm-bulk-alt'),
+                                        'original_alt' => $shortcode_data['alt'],
+                                        'type' => 'divi'
+                                    );
+                                }
+                            } else {
+                                error_log("PDM Debug: No alt text in media library for Divi image");
+                                $images[] = array(
+                                    'src' => $shortcode_data['src'],
+                                    'alt_added' => '',
+                                    'success' => false,
+                                    'reason' => __('No alt text in media library', 'pdm-bulk-alt'),
+                                    'original_alt' => $shortcode_data['alt'],
+                                    'type' => 'divi'
+                                );
+                            }
+                        } else {
+                            error_log("PDM Debug: Could not find attachment ID for Divi image: " . $shortcode_data['src']);
+                            $images[] = array(
+                                'src' => $shortcode_data['src'],
+                                'alt_added' => '',
+                                'success' => false,
+                                'reason' => __('Image not found in media library', 'pdm-bulk-alt'),
+                                'original_alt' => $shortcode_data['alt'],
+                                'type' => 'divi'
+                            );
+                        }
+                    }
+                }
+            }
+        }
+        
+        return array(
+            'updated_content' => $updated_content,
+            'content_changed' => $content_changed,
+            'images' => $images
+        );
+    }
+    
+    /**
+     * Parse Divi image shortcode attributes
+     */
+    private function parse_divi_image_shortcode($shortcode) {
+        $data = array(
+            'src' => '',
+            'alt' => ''
+        );
+        
+        // Extract src attribute
+        if (preg_match('/src=["\']([^"\']+)["\']?/i', $shortcode, $src_matches)) {
+            $data['src'] = $src_matches[1];
+        }
+        
+        // Extract alt attribute
+        if (preg_match('/alt=["\']([^"\']*)["\']?/i', $shortcode, $alt_matches)) {
+            $data['alt'] = $alt_matches[1];
+        }
+        
+        return $data;
+    }
+    
+    /**
+     * Add alt attribute to Divi shortcode
+     */
+    private function add_alt_to_divi_shortcode($shortcode, $alt_text) {
+        $escaped_alt = esc_attr($alt_text);
+        
+        // Check if alt attribute already exists
+        if (preg_match('/alt=["\'][^"\']*["\']?/i', $shortcode)) {
+            // Replace existing alt attribute
+            $new_shortcode = preg_replace('/alt=["\'][^"\']*["\']?/i', 'alt="' . $escaped_alt . '"', $shortcode);
+        } else {
+            // Add alt attribute - place it after src for better readability
+            if (preg_match('/(src=["\'][^"\']+["\']?)/', $shortcode, $matches)) {
+                $new_shortcode = str_replace($matches[1], $matches[1] . ' alt="' . $escaped_alt . '"', $shortcode);
+            } else {
+                // Fallback: add before closing bracket
+                $new_shortcode = str_replace(']', ' alt="' . $escaped_alt . '"]', $shortcode);
+            }
+        }
+        
+        return $new_shortcode;
     }
     
     /**
