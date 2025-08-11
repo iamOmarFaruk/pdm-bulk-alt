@@ -81,7 +81,8 @@
     position: relative;
     margin-left: 5px;
     border: none;
-    padding: 0;
+    padding: 8px;
+    box-sizing: border-box;
 }
 
 .pdm-magnify-trigger .dashicons {
@@ -89,10 +90,22 @@
     font-size: 18px;
     width: 18px;
     height: 18px;
+    pointer-events: none;
 }
 
 .pdm-magnify-trigger:hover {
     background: #005a87;
+}
+
+/* Add a larger hover area around the magnify button */
+.pdm-magnify-trigger::before {
+    content: '';
+    position: absolute;
+    top: -5px;
+    left: -5px;
+    right: -5px;
+    bottom: -5px;
+    pointer-events: none;
 }
 
 /* Image preview overlay */

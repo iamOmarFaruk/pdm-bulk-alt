@@ -95,32 +95,71 @@
     }
     
     function initMagnifyFeature() {
-        // Handle magnify trigger hover
+        var hoverTimeout;
+        var isPreviewShowing = false;
+        
+        // Handle magnify trigger hover with delay
         $(document).on('mouseenter', '.pdm-magnify-trigger', function() {
             var $trigger = $(this);
             var imageUrl = $trigger.data('image-url');
             
-            if (imageUrl) {
-                showImagePreview(imageUrl, $trigger);
-            }
+            // Clear any existing timeout
+            clearTimeout(hoverTimeout);
+            
+            // Add small delay to prevent flickering
+            hoverTimeout = setTimeout(function() {
+                if (imageUrl && !isPreviewShowing) {
+                    showImagePreview(imageUrl, $trigger);
+                    isPreviewShowing = true;
+                }
+            }, 150);
         });
         
-        // Handle magnify trigger mouse leave
+        // Handle magnify trigger mouse leave with delay
         $(document).on('mouseleave', '.pdm-magnify-trigger', function() {
-            hideImagePreview();
+            clearTimeout(hoverTimeout);
+            
+            // Add delay before hiding to allow moving to preview
+            hoverTimeout = setTimeout(function() {
+                if (isPreviewShowing) {
+                    hideImagePreview();
+                    isPreviewShowing = false;
+                }
+            }, 100);
+        });
+        
+        // Keep preview open when hovering over the preview itself
+        $(document).on('mouseenter', '.pdm-image-preview-overlay', function() {
+            clearTimeout(hoverTimeout);
+        });
+        
+        // Hide when leaving preview overlay
+        $(document).on('mouseleave', '.pdm-image-preview-overlay', function() {
+            if (isPreviewShowing) {
+                hideImagePreview();
+                isPreviewShowing = false;
+            }
         });
         
         // Close preview on ESC key
         $(document).on('keydown', function(e) {
             if (e.keyCode === 27) { // ESC key
-                hideImagePreview();
+                clearTimeout(hoverTimeout);
+                if (isPreviewShowing) {
+                    hideImagePreview();
+                    isPreviewShowing = false;
+                }
             }
         });
         
         // Close preview on overlay click
         $(document).on('click', '.pdm-image-preview-overlay', function(e) {
             if (e.target === this) {
-                hideImagePreview();
+                clearTimeout(hoverTimeout);
+                if (isPreviewShowing) {
+                    hideImagePreview();
+                    isPreviewShowing = false;
+                }
             }
         });
     }
