@@ -60,6 +60,15 @@ class PDM_Bulk_Alt_Admin {
                 echo esc_html__('Save', 'pdm-bulk-alt');
                 echo '</button>';
                 echo '<span class="pdm-alt-status"></span>';
+                
+                // Add magnify icon for hover preview
+                $image_url = wp_get_attachment_image_url($post_id, 'large');
+                if ($image_url) {
+                    echo '<div class="pdm-magnify-trigger" data-image-url="' . esc_url($image_url) . '">';
+                    echo '<span class="dashicons dashicons-search" title="' . esc_attr__('Hover to preview', 'pdm-bulk-alt') . '"></span>';
+                    echo '</div>';
+                }
+                
                 echo '</div>';
             } else {
                 echo '<span class="pdm-not-image">' . esc_html__('Not an image', 'pdm-bulk-alt') . '</span>';

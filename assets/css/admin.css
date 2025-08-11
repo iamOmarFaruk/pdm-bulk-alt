@@ -66,6 +66,103 @@
     font-size: 12px;
 }
 
+/* Magnify feature styles */
+.pdm-magnify-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    background: #0073aa;
+    border-radius: 3px;
+    cursor: pointer;
+    position: relative;
+    margin-left: 5px;
+}
+
+.pdm-magnify-trigger .dashicons {
+    color: white;
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+}
+
+.pdm-magnify-trigger:hover {
+    background: #005a87;
+}
+
+/* Image preview overlay */
+.pdm-image-preview-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 999999;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.pdm-image-preview-overlay.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+.pdm-image-preview-container {
+    position: relative;
+    max-width: 400px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+    transform: scale(0.8);
+    transition: transform 0.3s ease;
+    padding: 10px;
+}
+
+.pdm-image-preview-overlay.show .pdm-image-preview-container {
+    transform: scale(1);
+}
+
+.pdm-image-preview-img {
+    max-width: 100%;
+    width: 100%;
+    height: auto;
+    display: block;
+    border-radius: 4px;
+}
+
+/* Loading spinner */
+.pdm-image-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 300px;
+    height: 200px;
+    color: white;
+    font-size: 14px;
+}
+
+.pdm-spinner {
+    width: 30px;
+    height: 30px;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    border-top: 3px solid white;
+    border-radius: 50%;
+    animation: pdm-spin 1s linear infinite;
+    margin-right: 10px;
+}
+
+@keyframes pdm-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
 /* Quick edit styles */
 .pdm-quick-edit-alt {
     width: 100%;

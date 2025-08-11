@@ -89,6 +89,86 @@
                 $quickEditRow.find('.pdm-quick-edit-alt').val(currentAlt);
             }, 100);
         });
+        
+        // Initialize magnify feature
+        initMagnifyFeature();
+    }
+    
+    function initMagnifyFeature() {
+        // Handle magnify trigger hover
+        $(document).on('mouseenter', '.pdm-magnify-trigger', function() {
+            var $trigger = $(this);
+            var imageUrl = $trigger.data('image-url');
+            
+            if (imageUrl) {
+                showImagePreview(imageUrl, $trigger);
+            }
+        });
+        
+        // Handle magnify trigger mouse leave
+        $(document).on('mouseleave', '.pdm-magnify-trigger', function() {
+            hideImagePreview();
+        });
+        
+        // Close preview on ESC key
+        $(document).on('keydown', function(e) {
+            if (e.keyCode === 27) { // ESC key
+                hideImagePreview();
+            }
+        });
+        
+        // Close preview on overlay click
+        $(document).on('click', '.pdm-image-preview-overlay', function(e) {
+            if (e.target === this) {
+                hideImagePreview();
+            }
+        });
+    }
+    
+    function showImagePreview(imageUrl, $trigger) {
+        // Remove any existing preview
+        $('.pdm-image-preview-overlay').remove();
+        
+        // Create overlay
+        var $overlay = $('<div class="pdm-image-preview-overlay"></div>');
+        var $container = $('<div class="pdm-image-preview-container"></div>');
+        var $loading = $('<div class="pdm-image-loading"><div class="pdm-spinner"></div>Loading image...</div>');
+        
+        $container.append($loading);
+        $overlay.append($container);
+        $('body').append($overlay);
+        
+        // Show overlay with loading
+        setTimeout(function() {
+            $overlay.addClass('show');
+        }, 10);
+        
+        // Load image
+        var img = new Image();
+        img.onload = function() {
+            // Create simple image content (no info, no close button)
+            var $img = $('<img class="pdm-image-preview-img" alt="Preview">');
+            $img.attr('src', imageUrl);
+            
+            // Replace loading with just the image
+            $container.html($img);
+        };
+        
+        img.onerror = function() {
+            $container.html('<div class="pdm-image-loading">Failed to load image</div>');
+        };
+        
+        img.src = imageUrl;
+    }
+    
+    function hideImagePreview() {
+        var $overlay = $('.pdm-image-preview-overlay');
+        if ($overlay.length) {
+            $overlay.removeClass('show');
+            setTimeout(function() {
+                $overlay.remove();
+            }, 300);
+        }
     }
     
 })(jQuery);
