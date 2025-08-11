@@ -1,0 +1,90 @@
+/* PDM Bulk Alt Admin Styles */
+
+.pdm-alt-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    max-width: 250px;
+}
+
+.pdm-alt-input {
+    flex: 1;
+    min-width: 120px;
+    padding: 4px 8px;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    font-size: 12px;
+}
+
+.pdm-alt-input:focus {
+    border-color: #0073aa;
+    outline: none;
+    box-shadow: 0 0 0 1px #0073aa;
+}
+
+.pdm-save-alt {
+    padding: 4px 8px !important;
+    font-size: 11px !important;
+    line-height: 1.2 !important;
+    height: auto !important;
+    background: #0073aa;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.pdm-save-alt:hover {
+    background: #005a87;
+}
+
+.pdm-save-alt:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+.pdm-alt-status {
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.pdm-alt-status.success {
+    color: #46b450;
+}
+
+.pdm-alt-status.error {
+    color: #dc3232;
+}
+
+.pdm-alt-status.saving {
+    color: #0073aa;
+}
+
+.pdm-not-image {
+    font-style: italic;
+    color: #666;
+    font-size: 12px;
+}
+
+/* Quick edit styles */
+.pdm-quick-edit-alt {
+    width: 100%;
+}
+
+/* Hide column in grid view */
+.upload-php .mode-grid .column-pdm_alt_text {
+    display: none;
+}
+
+/* Responsive adjustments */
+@media screen and (max-width: 782px) {
+    .pdm-alt-wrapper {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 4px;
+    }
+    
+    .pdm-alt-input {
+        min-width: auto;
+    }
+}
