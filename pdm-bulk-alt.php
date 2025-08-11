@@ -37,11 +37,13 @@ class PDM_Bulk_Alt {
         // Initialize components
         if (is_admin()) {
             new PDM_Bulk_Alt_Admin();
+            new PDM_Bulk_Alt_Scanner();
         }
     }
     
     private function include_files() {
         require_once PDM_BULK_ALT_PLUGIN_DIR . 'includes/class-admin.php';
+        require_once PDM_BULK_ALT_PLUGIN_DIR . 'includes/class-scanner.php';
     }
 }
 

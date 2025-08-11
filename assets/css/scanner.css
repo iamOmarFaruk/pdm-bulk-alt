@@ -1,0 +1,219 @@
+/* PDM Scanner Admin Styles */
+
+.pdm-scanner-container {
+    max-width: 800px;
+    margin: 20px 0;
+}
+
+.pdm-scanner-controls {
+    margin-bottom: 20px;
+}
+
+.pdm-scanner-controls .button-large {
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.pdm-progress-container {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.pdm-progress-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.pdm-progress-info span {
+    font-weight: 600;
+}
+
+#pdm-progress-percent {
+    color: #0073aa;
+    font-size: 16px;
+}
+
+.pdm-progress-bar {
+    width: 100%;
+    height: 20px;
+    background: #f1f1f1;
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 15px;
+    position: relative;
+}
+
+.pdm-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #0073aa, #005a87);
+    width: 0%;
+    transition: width 0.3s ease;
+    border-radius: 10px;
+}
+
+.pdm-scan-stats {
+    display: flex;
+    gap: 15px;
+    font-size: 14px;
+    color: #666;
+}
+
+.pdm-scan-stats span {
+    font-weight: 600;
+    color: #0073aa;
+}
+
+.pdm-results-container {
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.pdm-results-container h2 {
+    margin-top: 0;
+    margin-bottom: 20px;
+    color: #23282d;
+}
+
+.pdm-results-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+
+.pdm-results-table th,
+.pdm-results-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+}
+
+.pdm-results-table th {
+    background: #f9f9f9;
+    font-weight: 600;
+    color: #23282d;
+}
+
+.pdm-results-table tr:hover {
+    background: #f9f9f9;
+}
+
+.pdm-status-success {
+    color: #46b450;
+    font-weight: 600;
+}
+
+.pdm-status-error {
+    color: #dc3232;
+    font-weight: 600;
+}
+
+.pdm-post-link {
+    text-decoration: none;
+    color: #0073aa;
+}
+
+.pdm-post-link:hover {
+    text-decoration: underline;
+}
+
+.pdm-image-preview {
+    max-width: 60px;
+    max-height: 40px;
+    border-radius: 3px;
+}
+
+.pdm-alt-text {
+    font-style: italic;
+    color: #666;
+    max-width: 200px;
+    word-wrap: break-word;
+}
+
+.pdm-summary-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.pdm-stat-box {
+    background: #f9f9f9;
+    padding: 15px;
+    border-radius: 5px;
+    text-align: center;
+    border: 1px solid #ddd;
+}
+
+.pdm-stat-number {
+    font-size: 24px;
+    font-weight: 600;
+    color: #0073aa;
+    display: block;
+}
+
+.pdm-stat-label {
+    font-size: 12px;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.pdm-no-results {
+    text-align: center;
+    padding: 40px;
+    color: #666;
+    font-style: italic;
+}
+
+.pdm-error-message {
+    background: #fff2f2;
+    border-left: 4px solid #dc3232;
+    padding: 12px;
+    margin: 10px 0;
+    border-radius: 0 3px 3px 0;
+}
+
+.pdm-success-message {
+    background: #f0fff4;
+    border-left: 4px solid #46b450;
+    padding: 12px;
+    margin: 10px 0;
+    border-radius: 0 3px 3px 0;
+}
+
+/* Responsive design */
+@media screen and (max-width: 782px) {
+    .pdm-scanner-container {
+        margin: 10px 0;
+    }
+    
+    .pdm-progress-info {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+    }
+    
+    .pdm-scan-stats {
+        flex-direction: column;
+        gap: 5px;
+    }
+    
+    .pdm-results-table {
+        font-size: 12px;
+    }
+    
+    .pdm-results-table th,
+    .pdm-results-table td {
+        padding: 8px;
+    }
+}
