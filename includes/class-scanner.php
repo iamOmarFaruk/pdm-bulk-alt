@@ -42,7 +42,7 @@ class PDM_Bulk_Alt_Scanner {
         ?>
         <div class="wrap">
             <h1><?php esc_html_e('Set Alt Tags', 'pdm-bulk-alt'); ?></h1>
-            <p><?php esc_html_e('Scan your website and automatically set alt tags for images that are missing them.', 'pdm-bulk-alt'); ?></p>
+            <p><?php esc_html_e('Scan your website and automatically sync all alt tags with values from your media library. This will update existing alt tags and add missing ones to ensure consistency across your site.', 'pdm-bulk-alt'); ?></p>
             
             <div class="pdm-scanner-container">
                 <div class="pdm-scanner-controls">
@@ -162,70 +162,79 @@ class PDM_Bulk_Alt_Scanner {
                         // Debug: Let's check what we're finding
                         error_log("PDM Debug: Post ID: " . $post->ID . " (" . $post->post_type . ") - HTML Image found - src: " . $image_data['src'] . ", has_alt: " . ($image_data['has_alt'] ? 'true' : 'false') . ", alt_value: '" . $image_data['alt_value'] . "'");
                         
-                        // Check if this image needs alt text (either no alt or empty alt)
-                        if (!$image_data['has_alt']) {
-                            $images_found++;
+                        // Always process images to sync with media library (removed the !$image_data['has_alt'] condition)
+                        $images_found++;
+                        
+                        // Try to get attachment ID and alt text
+                        $attachment_id = $this->get_attachment_id_from_url($image_data['src']);
+                        
+                        if ($attachment_id) {
+                            $alt_text = get_post_meta($attachment_id, '_wp_attachment_image_alt', true);
+                            error_log("PDM Debug: Found attachment ID: " . $attachment_id . ", alt text: '" . $alt_text . "'");
                             
-                            // Try to get attachment ID and alt text
-                            $attachment_id = $this->get_attachment_id_from_url($image_data['src']);
-                            
-                            if ($attachment_id) {
-                                $alt_text = get_post_meta($attachment_id, '_wp_attachment_image_alt', true);
-                                error_log("PDM Debug: Found attachment ID: " . $attachment_id . ", alt text: '" . $alt_text . "'");
+                            // Only update if media library has alt text and it's different from current
+                            if (!empty($alt_text) && $alt_text !== $image_data['alt_value']) {
+                                // Update the image tag in content
+                                $new_img_tag = $this->add_alt_to_image_tag($img_tag, $alt_text);
                                 
-                                if (!empty($alt_text)) {
-                                    // Update the image tag in content
-                                    $new_img_tag = $this->add_alt_to_image_tag($img_tag, $alt_text);
+                                if ($new_img_tag !== $img_tag) {
+                                    $updated_content = str_replace($img_tag, $new_img_tag, $updated_content);
+                                    $content_changed = true;
+                                    $images_updated++;
                                     
-                                    if ($new_img_tag !== $img_tag) {
-                                        $updated_content = str_replace($img_tag, $new_img_tag, $updated_content);
-                                        $content_changed = true;
-                                        $images_updated++;
-                                        
-                                        error_log("PDM Debug: Updated HTML image tag successfully");
-                                        
-                                        $post_images[] = array(
-                                            'src' => $image_data['src'],
-                                            'alt_added' => $alt_text,
-                                            'success' => true,
-                                            'original_alt' => $image_data['alt_value'],
-                                            'type' => 'html'
-                                        );
-                                    } else {
-                                        error_log("PDM Debug: Failed to update HTML image tag");
-                                        $post_images[] = array(
-                                            'src' => $image_data['src'],
-                                            'alt_added' => '',
-                                            'success' => false,
-                                            'reason' => __('Could not update image tag', 'pdm-bulk-alt'),
-                                            'original_alt' => $image_data['alt_value'],
-                                            'type' => 'html'
-                                        );
-                                    }
+                                    error_log("PDM Debug: Updated HTML image tag successfully");
+                                    
+                                    $post_images[] = array(
+                                        'src' => $image_data['src'],
+                                        'alt_added' => $alt_text,
+                                        'success' => true,
+                                        'original_alt' => $image_data['alt_value'],
+                                        'type' => 'html'
+                                    );
                                 } else {
-                                    error_log("PDM Debug: No alt text in media library for attachment ID: " . $attachment_id);
+                                    error_log("PDM Debug: Failed to update HTML image tag");
                                     $post_images[] = array(
                                         'src' => $image_data['src'],
                                         'alt_added' => '',
                                         'success' => false,
-                                        'reason' => __('No alt text in media library', 'pdm-bulk-alt'),
+                                        'reason' => __('Could not update image tag', 'pdm-bulk-alt'),
                                         'original_alt' => $image_data['alt_value'],
                                         'type' => 'html'
                                     );
                                 }
-                            } else {
-                                error_log("PDM Debug: Could not find attachment ID for: " . $image_data['src']);
+                            } else if (empty($alt_text)) {
+                                error_log("PDM Debug: No alt text in media library for attachment ID: " . $attachment_id);
                                 $post_images[] = array(
                                     'src' => $image_data['src'],
                                     'alt_added' => '',
                                     'success' => false,
-                                    'reason' => __('Image not found in media library', 'pdm-bulk-alt'),
+                                    'reason' => __('No alt text in media library', 'pdm-bulk-alt'),
                                     'original_alt' => $image_data['alt_value'],
                                     'type' => 'html'
                                 );
+                            } else {
+                                // Alt text matches - no update needed
+                                error_log("PDM Debug: Alt text already matches media library");
+                                $post_images[] = array(
+                                    'src' => $image_data['src'],
+                                    'alt_added' => $alt_text,
+                                    'success' => true,
+                                    'original_alt' => $image_data['alt_value'],
+                                    'type' => 'html',
+                                    'already_synced' => true
+                                );
                             }
+                        } else {
+                            error_log("PDM Debug: Could not find attachment ID for: " . $image_data['src']);
+                            $post_images[] = array(
+                                'src' => $image_data['src'],
+                                'alt_added' => '',
+                                'success' => false,
+                                'reason' => __('Image not found in media library', 'pdm-bulk-alt'),
+                                'original_alt' => $image_data['alt_value'],
+                                'type' => 'html'
+                            );
                         }
-                        // If image already has meaningful alt text, we skip it (don't add to results)
                     }
                 }
             }
@@ -556,70 +565,78 @@ class PDM_Bulk_Alt_Scanner {
                 $shortcode_data = $this->parse_divi_image_shortcode($shortcode);
                 
                 if ($shortcode_data && !empty($shortcode_data['src'])) {
-                    // Check if alt is missing or empty
-                    $needs_alt = empty($shortcode_data['alt']) || trim($shortcode_data['alt']) === '';
+                    // Always process images to sync with media library (removed the needs_alt condition)
+                    error_log("PDM Debug: Divi image - src: " . $shortcode_data['src'] . ", current alt: '" . $shortcode_data['alt'] . "'");
                     
-                    error_log("PDM Debug: Divi image - src: " . $shortcode_data['src'] . ", alt: '" . $shortcode_data['alt'] . "', needs_alt: " . ($needs_alt ? 'yes' : 'no'));
+                    // Try to get attachment ID and alt text
+                    $attachment_id = $this->get_attachment_id_from_url($shortcode_data['src']);
                     
-                    if ($needs_alt) {
-                        // Try to get attachment ID and alt text
-                        $attachment_id = $this->get_attachment_id_from_url($shortcode_data['src']);
+                    if ($attachment_id) {
+                        $alt_text = get_post_meta($attachment_id, '_wp_attachment_image_alt', true);
                         
-                        if ($attachment_id) {
-                            $alt_text = get_post_meta($attachment_id, '_wp_attachment_image_alt', true);
+                        error_log("PDM Debug: Divi - Found attachment ID: " . $attachment_id . ", alt text: '" . $alt_text . "'");
+                        
+                        // Only update if media library has alt text and it's different from current
+                        if (!empty($alt_text) && $alt_text !== $shortcode_data['alt']) {
+                            // Update the shortcode with alt text
+                            $new_shortcode = $this->add_alt_to_divi_shortcode($shortcode, $alt_text);
                             
-                            error_log("PDM Debug: Divi - Found attachment ID: " . $attachment_id . ", alt text: '" . $alt_text . "'");
-                            
-                            if (!empty($alt_text)) {
-                                // Update the shortcode with alt text
-                                $new_shortcode = $this->add_alt_to_divi_shortcode($shortcode, $alt_text);
+                            if ($new_shortcode !== $shortcode) {
+                                $updated_content = str_replace($shortcode, $new_shortcode, $updated_content);
+                                $content_changed = true;
                                 
-                                if ($new_shortcode !== $shortcode) {
-                                    $updated_content = str_replace($shortcode, $new_shortcode, $updated_content);
-                                    $content_changed = true;
-                                    
-                                    error_log("PDM Debug: Updated Divi shortcode successfully");
-                                    
-                                    $images[] = array(
-                                        'src' => $shortcode_data['src'],
-                                        'alt_added' => $alt_text,
-                                        'success' => true,
-                                        'original_alt' => $shortcode_data['alt'],
-                                        'type' => 'divi'
-                                    );
-                                } else {
-                                    error_log("PDM Debug: Failed to update Divi shortcode");
-                                    $images[] = array(
-                                        'src' => $shortcode_data['src'],
-                                        'alt_added' => '',
-                                        'success' => false,
-                                        'reason' => __('Could not update Divi shortcode', 'pdm-bulk-alt'),
-                                        'original_alt' => $shortcode_data['alt'],
-                                        'type' => 'divi'
-                                    );
-                                }
+                                error_log("PDM Debug: Updated Divi shortcode successfully");
+                                
+                                $images[] = array(
+                                    'src' => $shortcode_data['src'],
+                                    'alt_added' => $alt_text,
+                                    'success' => true,
+                                    'original_alt' => $shortcode_data['alt'],
+                                    'type' => 'divi'
+                                );
                             } else {
-                                error_log("PDM Debug: No alt text in media library for Divi image");
+                                error_log("PDM Debug: Failed to update Divi shortcode");
                                 $images[] = array(
                                     'src' => $shortcode_data['src'],
                                     'alt_added' => '',
                                     'success' => false,
-                                    'reason' => __('No alt text in media library', 'pdm-bulk-alt'),
+                                    'reason' => __('Could not update Divi shortcode', 'pdm-bulk-alt'),
                                     'original_alt' => $shortcode_data['alt'],
                                     'type' => 'divi'
                                 );
                             }
-                        } else {
-                            error_log("PDM Debug: Could not find attachment ID for Divi image: " . $shortcode_data['src']);
+                        } else if (empty($alt_text)) {
+                            error_log("PDM Debug: No alt text in media library for Divi image");
                             $images[] = array(
                                 'src' => $shortcode_data['src'],
                                 'alt_added' => '',
                                 'success' => false,
-                                'reason' => __('Image not found in media library', 'pdm-bulk-alt'),
+                                'reason' => __('No alt text in media library', 'pdm-bulk-alt'),
                                 'original_alt' => $shortcode_data['alt'],
                                 'type' => 'divi'
                             );
+                        } else {
+                            // Alt text matches - no update needed
+                            error_log("PDM Debug: Divi alt text already matches media library");
+                            $images[] = array(
+                                'src' => $shortcode_data['src'],
+                                'alt_added' => $alt_text,
+                                'success' => true,
+                                'original_alt' => $shortcode_data['alt'],
+                                'type' => 'divi',
+                                'already_synced' => true
+                            );
                         }
+                    } else {
+                        error_log("PDM Debug: Could not find attachment ID for Divi image: " . $shortcode_data['src']);
+                        $images[] = array(
+                            'src' => $shortcode_data['src'],
+                            'alt_added' => '',
+                            'success' => false,
+                            'reason' => __('Image not found in media library', 'pdm-bulk-alt'),
+                            'original_alt' => $shortcode_data['alt'],
+                            'type' => 'divi'
+                        );
                     }
                 }
             }

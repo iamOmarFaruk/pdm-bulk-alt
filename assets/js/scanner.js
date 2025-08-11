@@ -250,7 +250,11 @@
                     // Status
                     html += '<td>';
                     if (image.success) {
-                        html += '<span class="pdm-status-success">✓ Added</span>';
+                        if (image.already_synced) {
+                            html += '<span class="pdm-status-success">✓ Already Synced</span>';
+                        } else {
+                            html += '<span class="pdm-status-success">✓ Updated</span>';
+                        }
                     } else {
                         html += '<span class="pdm-status-error">✗ Failed</span>';
                         if (image.reason) {
