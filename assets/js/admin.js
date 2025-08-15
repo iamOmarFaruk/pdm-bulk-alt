@@ -17,7 +17,8 @@
             var $input = $button.siblings('.pdm-alt-input');
             var $status = $button.siblings('.pdm-alt-status');
             var attachmentId = $button.data('attachment-id');
-            var altText = $input.val().trim();
+            var fieldType = $button.data('field-type');
+            var fieldValue = $input.val().trim();
             
             // Disable button and show saving status
             $button.prop('disabled', true);
@@ -30,7 +31,8 @@
                 data: {
                     action: 'pdm_update_alt_text',
                     attachment_id: attachmentId,
-                    alt_text: altText,
+                    alt_text: fieldValue, // Keep same param name for compatibility
+                    field_type: fieldType,
                     nonce: pdmBulkAlt.nonce
                 },
                 success: function(response) {
@@ -65,14 +67,15 @@
         $(document).on('input', '.pdm-alt-input', function() {
             var $input = $(this);
             var text = $input.val();
+            var fieldType = $input.data('field-type');
             
             // Clear any previous status when user starts typing
             $input.siblings('.pdm-alt-status').removeClass('success error saving').text('');
             
-            // Simple auto-resize
-            if (text.length > 20) {
+            // Simple auto-resize for text inputs (not textareas)
+            if (!$input.is('textarea') && text.length > 20) {
                 $input.css('width', Math.min(text.length * 8, 200) + 'px');
-            } else {
+            } else if (!$input.is('textarea')) {
                 $input.css('width', '');
             }
         });

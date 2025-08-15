@@ -39,6 +39,9 @@ class PDM_Bulk_Alt_Admin {
         }
         
         $columns['pdm_alt_text'] = __('Alt Text', 'pdm-bulk-alt');
+        $columns['pdm_title'] = __('Title', 'pdm-bulk-alt');
+        $columns['pdm_caption'] = __('Caption', 'pdm-bulk-alt');
+        $columns['pdm_description'] = __('Description', 'pdm-bulk-alt');
         return $columns;
     }
     
@@ -46,27 +49,60 @@ class PDM_Bulk_Alt_Admin {
      * Display alt text column content
      */
     public function display_alt_column($column_name, $post_id) {
-        if ($column_name === 'pdm_alt_text') {
-            $alt_text = get_post_meta($post_id, '_wp_attachment_image_alt', true);
+        if (in_array($column_name, ['pdm_alt_text', 'pdm_title', 'pdm_caption', 'pdm_description'])) {
             $attachment = get_post($post_id);
             
             // Only show for image attachments
             if (wp_attachment_is_image($post_id)) {
+                // Get current values
+                $values = array(
+                    'pdm_alt_text' => get_post_meta($post_id, '_wp_attachment_image_alt', true),
+                    'pdm_title' => $attachment->post_title,
+                    'pdm_caption' => $attachment->post_excerpt,
+                    'pdm_description' => $attachment->post_content
+                );
+                
+                $current_value = $values[$column_name];
+                $field_labels = array(
+                    'pdm_alt_text' => __('Enter alt text...', 'pdm-bulk-alt'),
+                    'pdm_title' => __('Enter title...', 'pdm-bulk-alt'),
+                    'pdm_caption' => __('Enter caption...', 'pdm-bulk-alt'),
+                    'pdm_description' => __('Enter description...', 'pdm-bulk-alt')
+                );
+                
                 echo '<div class="pdm-alt-wrapper">';
-                echo '<input type="text" class="pdm-alt-input" value="' . esc_attr($alt_text) . '" ';
+                
+                if ($column_name === 'pdm_description') {
+                    // Use textarea for description
+                    echo '<textarea class="pdm-alt-input pdm-description-input" ';
+                    echo 'data-attachment-id="' . esc_attr($post_id) . '" ';
+                    echo 'data-field-type="' . esc_attr($column_name) . '" ';
+                    echo 'placeholder="' . esc_attr($field_labels[$column_name]) . '" ';
+                    echo 'rows="2">' . esc_textarea($current_value) . '</textarea>';
+                } else {
+                    // Use input for alt, title, caption
+                    echo '<input type="text" class="pdm-alt-input" ';
+                    echo 'value="' . esc_attr($current_value) . '" ';
+                    echo 'data-attachment-id="' . esc_attr($post_id) . '" ';
+                    echo 'data-field-type="' . esc_attr($column_name) . '" ';
+                    echo 'placeholder="' . esc_attr($field_labels[$column_name]) . '">';
+                }
+                
+                echo '<button type="button" class="pdm-save-alt button-small" ';
                 echo 'data-attachment-id="' . esc_attr($post_id) . '" ';
-                echo 'placeholder="' . esc_attr__('Enter alt text...', 'pdm-bulk-alt') . '">';
-                echo '<button type="button" class="pdm-save-alt button-small" data-attachment-id="' . esc_attr($post_id) . '">';
+                echo 'data-field-type="' . esc_attr($column_name) . '">';
                 echo esc_html__('Save', 'pdm-bulk-alt');
                 echo '</button>';
                 echo '<span class="pdm-alt-status"></span>';
                 
-                // Add magnify icon for hover preview
-                $image_url = wp_get_attachment_image_url($post_id, 'large');
-                if ($image_url) {
-                    echo '<div class="pdm-magnify-trigger" data-image-url="' . esc_url($image_url) . '">';
-                    echo '<span class="dashicons dashicons-search" title="' . esc_attr__('Hover to preview', 'pdm-bulk-alt') . '"></span>';
-                    echo '</div>';
+                // Add magnify icon only for alt text column
+                if ($column_name === 'pdm_alt_text') {
+                    $image_url = wp_get_attachment_image_url($post_id, 'large');
+                    if ($image_url) {
+                        echo '<div class="pdm-magnify-trigger" data-image-url="' . esc_url($image_url) . '">';
+                        echo '<span class="dashicons dashicons-search" title="' . esc_attr__('Click to preview', 'pdm-bulk-alt') . '"></span>';
+                        echo '</div>';
+                    }
                 }
                 
                 echo '</div>';
@@ -81,6 +117,9 @@ class PDM_Bulk_Alt_Admin {
      */
     public function make_alt_column_sortable($columns) {
         $columns['pdm_alt_text'] = 'pdm_alt_text';
+        $columns['pdm_title'] = 'pdm_title';
+        $columns['pdm_caption'] = 'pdm_caption';
+        $columns['pdm_description'] = 'pdm_description';
         return $columns;
     }
     
@@ -99,20 +138,59 @@ class PDM_Bulk_Alt_Admin {
         }
         
         $attachment_id = intval($_POST['attachment_id']);
-        $alt_text = sanitize_text_field($_POST['alt_text']);
+        $field_type = sanitize_text_field($_POST['field_type']);
+        $field_value = sanitize_textarea_field($_POST['alt_text']); // Keep same param name for compatibility
         
         // Verify attachment exists and is an image
         if (!wp_attachment_is_image($attachment_id)) {
             wp_send_json_error(__('Invalid attachment', 'pdm-bulk-alt'));
         }
         
-        // Update alt text
-        $result = update_post_meta($attachment_id, '_wp_attachment_image_alt', $alt_text);
+        $result = false;
+        
+        // Update based on field type
+        switch ($field_type) {
+            case 'pdm_alt_text':
+                $result = update_post_meta($attachment_id, '_wp_attachment_image_alt', $field_value);
+                break;
+                
+            case 'pdm_title':
+                $result = wp_update_post(array(
+                    'ID' => $attachment_id,
+                    'post_title' => $field_value
+                ));
+                break;
+                
+            case 'pdm_caption':
+                $result = wp_update_post(array(
+                    'ID' => $attachment_id,
+                    'post_excerpt' => $field_value
+                ));
+                break;
+                
+            case 'pdm_description':
+                $result = wp_update_post(array(
+                    'ID' => $attachment_id,
+                    'post_content' => $field_value
+                ));
+                break;
+                
+            default:
+                wp_send_json_error(__('Invalid field type', 'pdm-bulk-alt'));
+        }
         
         if ($result !== false) {
-            wp_send_json_success(__('Alt text updated successfully', 'pdm-bulk-alt'));
+            $field_names = array(
+                'pdm_alt_text' => __('Alt text', 'pdm-bulk-alt'),
+                'pdm_title' => __('Title', 'pdm-bulk-alt'),
+                'pdm_caption' => __('Caption', 'pdm-bulk-alt'),
+                'pdm_description' => __('Description', 'pdm-bulk-alt')
+            );
+            
+            $message = sprintf(__('%s updated successfully', 'pdm-bulk-alt'), $field_names[$field_type]);
+            wp_send_json_success($message);
         } else {
-            wp_send_json_error(__('Failed to update alt text', 'pdm-bulk-alt'));
+            wp_send_json_error(__('Failed to update field', 'pdm-bulk-alt'));
         }
     }
     

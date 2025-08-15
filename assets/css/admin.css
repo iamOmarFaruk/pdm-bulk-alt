@@ -14,12 +14,27 @@
     border: 1px solid #ddd;
     border-radius: 3px;
     font-size: 12px;
+    font-family: inherit;
+    resize: vertical;
+}
+
+.pdm-description-input {
+    min-height: 60px;
+    line-height: 1.4;
 }
 
 .pdm-alt-input:focus {
     border-color: #0073aa;
     outline: none;
     box-shadow: 0 0 0 1px #0073aa;
+}
+
+/* Hide columns in grid view */
+.upload-php .mode-grid .column-pdm_alt_text,
+.upload-php .mode-grid .column-pdm_title,
+.upload-php .mode-grid .column-pdm_caption,
+.upload-php .mode-grid .column-pdm_description {
+    display: none;
 }
 
 .pdm-save-alt {
@@ -178,11 +193,6 @@
 /* Quick edit styles */
 .pdm-quick-edit-alt {
     width: 100%;
-}
-
-/* Hide column in grid view */
-.upload-php .mode-grid .column-pdm_alt_text {
-    display: none;
 }
 
 /* Responsive adjustments */
