@@ -9,67 +9,78 @@
     });
     
     function initPDMBulkAlt() {
-        // Handle save button clicks
-        $(document).on('click', '.pdm-save-attribute', function(e) {
+        // Handle single save all button click
+        $(document).on('click', '.pdm-save-all-attributes', function(e) {
             e.preventDefault();
             
             var $button = $(this);
             var $wrapper = $button.closest('.pdm-bulk-attributes-wrapper');
-            var $input = $button.siblings('.pdm-attribute-input');
-            var $status = $wrapper.find('.pdm-attribute-status[data-field-type="' + $button.data('field-type') + '"]');
+            var $status = $wrapper.find('.pdm-save-status');
             var attachmentId = $wrapper.data('attachment-id');
-            var fieldType = $button.data('field-type');
-            var fieldValue = $input.val().trim();
+            
+            // Get all field values
+            var titleValue = $wrapper.find('.pdm-attribute-input[data-field-type="title"]').val().trim();
+            var altValue = $wrapper.find('.pdm-attribute-input[data-field-type="alt"]').val().trim();
+            var captionValue = $wrapper.find('.pdm-attribute-input[data-field-type="caption"]').val().trim();
             
             // Disable button and show saving status
-            $button.prop('disabled', true);
-            $status.removeClass('success error').addClass('saving').text(pdmBulkAlt.messages.saving);
+            $button.prop('disabled', true).text('Saving...');
+            $status.removeClass('success error partial').addClass('saving').text(pdmBulkAlt.messages.saving);
             
-            // Send AJAX request
+            // Send AJAX request with all values
             $.ajax({
                 url: pdmBulkAlt.ajaxUrl,
                 type: 'POST',
                 data: {
                     action: 'pdm_update_alt_text',
                     attachment_id: attachmentId,
-                    alt_text: fieldValue, // Keep same param name for compatibility
-                    field_type: fieldType,
+                    title: titleValue,
+                    alt_text: altValue,
+                    caption: captionValue,
                     nonce: pdmBulkAlt.nonce
                 },
                 success: function(response) {
                     if (response.success) {
-                        $status.removeClass('saving error').addClass('success').text(pdmBulkAlt.messages.saved);
-                        // Clear status after 2 seconds
+                        var data = response.data;
+                        
+                        if (data.partial) {
+                            // Partial success
+                            $status.removeClass('saving error').addClass('partial').text(data.message);
+                        } else {
+                            // Full success
+                            $status.removeClass('saving error partial').addClass('success').text(data.message);
+                        }
+                        
+                        // Clear status after 3 seconds
                         setTimeout(function() {
-                            $status.removeClass('success').text('');
-                        }, 2000);
+                            $status.removeClass('success partial').text('');
+                        }, 3000);
                     } else {
-                        $status.removeClass('saving success').addClass('error').text(response.data || pdmBulkAlt.messages.error);
+                        $status.removeClass('saving success partial').addClass('error').text(response.data || pdmBulkAlt.messages.error);
                     }
                 },
-                error: function() {
-                    $status.removeClass('saving success').addClass('error').text(pdmBulkAlt.messages.error);
+                error: function(jqXHR, textStatus, errorThrown) {
+                    console.error('AJAX Error:', textStatus, errorThrown);
+                    $status.removeClass('saving success partial').addClass('error').text(pdmBulkAlt.messages.error);
                 },
                 complete: function() {
-                    $button.prop('disabled', false);
+                    $button.prop('disabled', false).text('Save All');
                 }
             });
         });
         
-        // Handle Enter key in input fields
+        // Handle Enter key in input fields - trigger save all
         $(document).on('keypress', '.pdm-attribute-input', function(e) {
             if (e.which === 13) { // Enter key
                 e.preventDefault();
-                var fieldType = $(this).data('field-type');
-                $(this).closest('.pdm-attribute-row').find('.pdm-save-attribute[data-field-type="' + fieldType + '"]').trigger('click');
+                $(this).closest('.pdm-bulk-attributes-wrapper').find('.pdm-save-all-attributes').trigger('click');
             }
         });
         
-        // Clear status when user starts typing
+        // Clear status when user starts typing in any field
         $(document).on('input', '.pdm-attribute-input', function() {
-            var fieldType = $(this).data('field-type');
             var $wrapper = $(this).closest('.pdm-bulk-attributes-wrapper');
-            $wrapper.find('.pdm-attribute-status[data-field-type="' + fieldType + '"]').removeClass('success error saving').text('');
+            $wrapper.find('.pdm-save-status').removeClass('success error saving partial').text('');
         });
         
         // Handle quick edit functionality

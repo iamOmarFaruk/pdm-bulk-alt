@@ -58,60 +58,50 @@ class PDM_Bulk_Alt_Admin {
                 
                 echo '<div class="pdm-bulk-attributes-wrapper" data-attachment-id="' . esc_attr($post_id) . '">';
                 
-                // Alt Text Field
-                echo '<div class="pdm-attribute-row">';
-                echo '<label class="pdm-attribute-label">Alt Text:</label>';
-                echo '<div class="pdm-attribute-input-wrapper">';
-                echo '<input type="text" class="pdm-attribute-input" ';
-                echo 'value="' . esc_attr($alt_text) . '" ';
-                echo 'data-field-type="alt" ';
-                echo 'placeholder="Enter alt text...">';
-                echo '<button type="button" class="pdm-save-attribute button-small" data-field-type="alt">';
-                echo esc_html__('Save', 'pdm-bulk-alt');
-                echo '</button>';
-                echo '</div>';
-                echo '<span class="pdm-attribute-status" data-field-type="alt"></span>';
-                echo '</div>';
-                
-                // Title Field
-                echo '<div class="pdm-attribute-row">';
-                echo '<label class="pdm-attribute-label">Title:</label>';
-                echo '<div class="pdm-attribute-input-wrapper">';
-                echo '<input type="text" class="pdm-attribute-input" ';
-                echo 'value="' . esc_attr($title) . '" ';
-                echo 'data-field-type="title" ';
-                echo 'placeholder="Enter title...">';
-                echo '<button type="button" class="pdm-save-attribute button-small" data-field-type="title">';
-                echo esc_html__('Save', 'pdm-bulk-alt');
-                echo '</button>';
-                echo '</div>';
-                echo '<span class="pdm-attribute-status" data-field-type="title"></span>';
-                echo '</div>';
-                
-                // Caption Field
-                echo '<div class="pdm-attribute-row">';
-                echo '<label class="pdm-attribute-label">Caption:</label>';
-                echo '<div class="pdm-attribute-input-wrapper">';
-                echo '<input type="text" class="pdm-attribute-input" ';
-                echo 'value="' . esc_attr($caption) . '" ';
-                echo 'data-field-type="caption" ';
-                echo 'placeholder="Enter caption...">';
-                echo '<button type="button" class="pdm-save-attribute button-small" data-field-type="caption">';
-                echo esc_html__('Save', 'pdm-bulk-alt');
-                echo '</button>';
-                echo '</div>';
-                echo '<span class="pdm-attribute-status" data-field-type="caption"></span>';
-                echo '</div>';
-                
-                // Magnify Icon
+                // Magnify Icon at top
                 $image_url = wp_get_attachment_image_url($post_id, 'large');
                 if ($image_url) {
-                    echo '<div class="pdm-magnify-row">';
+                    echo '<div class="pdm-magnify-row-top">';
                     echo '<div class="pdm-magnify-trigger" data-image-url="' . esc_url($image_url) . '">';
                     echo '<span class="dashicons dashicons-search" title="' . esc_attr__('Preview Image', 'pdm-bulk-alt') . '"></span>';
                     echo '</div>';
                     echo '</div>';
                 }
+                
+                // Title Field
+                echo '<div class="pdm-attribute-row">';
+                echo '<label class="pdm-attribute-label">Title:</label>';
+                echo '<input type="text" class="pdm-attribute-input" ';
+                echo 'value="' . esc_attr($title) . '" ';
+                echo 'data-field-type="title" ';
+                echo 'placeholder="Enter title...">';
+                echo '</div>';
+                
+                // Alt Text Field
+                echo '<div class="pdm-attribute-row">';
+                echo '<label class="pdm-attribute-label">Alt Text:</label>';
+                echo '<input type="text" class="pdm-attribute-input" ';
+                echo 'value="' . esc_attr($alt_text) . '" ';
+                echo 'data-field-type="alt" ';
+                echo 'placeholder="Enter alt text...">';
+                echo '</div>';
+                
+                // Caption Field
+                echo '<div class="pdm-attribute-row">';
+                echo '<label class="pdm-attribute-label">Caption:</label>';
+                echo '<input type="text" class="pdm-attribute-input" ';
+                echo 'value="' . esc_attr($caption) . '" ';
+                echo 'data-field-type="caption" ';
+                echo 'placeholder="Enter caption...">';
+                echo '</div>';
+                
+                // Single Save Button at bottom
+                echo '<div class="pdm-save-row">';
+                echo '<button type="button" class="pdm-save-all-attributes button-primary">';
+                echo esc_html__('Save All', 'pdm-bulk-alt');
+                echo '</button>';
+                echo '<span class="pdm-save-status"></span>';
+                echo '</div>';
                 
                 echo '</div>';
             } else {
@@ -129,7 +119,7 @@ class PDM_Bulk_Alt_Admin {
     }
     
     /**
-     * Handle AJAX request to update attributes
+     * Handle AJAX request to update all attributes
      */
     public function ajax_update_alt_text() {
         // Verify nonce
@@ -143,59 +133,79 @@ class PDM_Bulk_Alt_Admin {
         }
         
         $attachment_id = intval($_POST['attachment_id']);
-        $field_type = sanitize_text_field($_POST['field_type']);
-        $field_value = sanitize_textarea_field($_POST['alt_text']); // Keep same param name for compatibility
         
         // Verify attachment exists and is an image
         if (!wp_attachment_is_image($attachment_id)) {
             wp_send_json_error(__('Invalid attachment', 'pdm-bulk-alt'));
         }
         
-        $result = false;
+        // Get all field values
+        $alt_text = sanitize_textarea_field($_POST['alt_text']);
+        $title = sanitize_text_field($_POST['title']);
+        $caption = sanitize_textarea_field($_POST['caption']);
         
-        // Update based on field type
-        switch ($field_type) {
-            case 'alt':
-                $result = update_post_meta($attachment_id, '_wp_attachment_image_alt', $field_value);
-                break;
-                
-            case 'title':
-                $result = wp_update_post(array(
-                    'ID' => $attachment_id,
-                    'post_title' => $field_value
-                ));
-                break;
-                
-            case 'caption':
-                $result = wp_update_post(array(
-                    'ID' => $attachment_id,
-                    'post_excerpt' => $field_value
-                ));
-                break;
-                
-            case 'description':
-                $result = wp_update_post(array(
-                    'ID' => $attachment_id,
-                    'post_content' => $field_value
-                ));
-                break;
-                
-            default:
-                wp_send_json_error(__('Invalid field type', 'pdm-bulk-alt'));
+        $results = array();
+        $success_count = 0;
+        $error_count = 0;
+        
+        // Update alt text
+        if (isset($_POST['alt_text'])) {
+            $alt_result = update_post_meta($attachment_id, '_wp_attachment_image_alt', $alt_text);
+            if ($alt_result !== false) {
+                $results['alt'] = 'success';
+                $success_count++;
+            } else {
+                $results['alt'] = 'error';
+                $error_count++;
+            }
         }
         
-        if ($result !== false) {
-            $field_names = array(
-                'alt' => __('Alt text', 'pdm-bulk-alt'),
-                'title' => __('Title', 'pdm-bulk-alt'),
-                'caption' => __('Caption', 'pdm-bulk-alt'),
-                'description' => __('Description', 'pdm-bulk-alt')
-            );
-            
-            $message = sprintf(__('%s updated successfully', 'pdm-bulk-alt'), $field_names[$field_type]);
-            wp_send_json_success($message);
+        // Update title
+        if (isset($_POST['title'])) {
+            $title_result = wp_update_post(array(
+                'ID' => $attachment_id,
+                'post_title' => $title
+            ));
+            if ($title_result && !is_wp_error($title_result)) {
+                $results['title'] = 'success';
+                $success_count++;
+            } else {
+                $results['title'] = 'error';
+                $error_count++;
+            }
+        }
+        
+        // Update caption
+        if (isset($_POST['caption'])) {
+            $caption_result = wp_update_post(array(
+                'ID' => $attachment_id,
+                'post_excerpt' => $caption
+            ));
+            if ($caption_result && !is_wp_error($caption_result)) {
+                $results['caption'] = 'success';
+                $success_count++;
+            } else {
+                $results['caption'] = 'error';
+                $error_count++;
+            }
+        }
+        
+        // Prepare response message
+        if ($error_count === 0) {
+            $message = sprintf(__('All attributes updated successfully (%d fields)', 'pdm-bulk-alt'), $success_count);
+            wp_send_json_success(array(
+                'message' => $message,
+                'results' => $results
+            ));
+        } else if ($success_count > 0) {
+            $message = sprintf(__('Partially updated: %d succeeded, %d failed', 'pdm-bulk-alt'), $success_count, $error_count);
+            wp_send_json_success(array(
+                'message' => $message,
+                'results' => $results,
+                'partial' => true
+            ));
         } else {
-            wp_send_json_error(__('Failed to update field', 'pdm-bulk-alt'));
+            wp_send_json_error(__('Failed to update any attributes', 'pdm-bulk-alt'));
         }
     }
     
