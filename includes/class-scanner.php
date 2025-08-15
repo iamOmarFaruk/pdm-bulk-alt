@@ -178,12 +178,12 @@ class PDM_Bulk_Alt_Scanner {
                             $is_already_synced = false;
                             
                             // Check if already synced (same values in media library and page)
-                            $alt_synced = (empty($alt_text) && empty($image_data['alt_value'])) || 
-                                         (!empty($alt_text) && $alt_text === $image_data['alt_value']);
-                            $title_synced = (empty($title_text) && empty($image_data['title_value'])) || 
-                                           (!empty($title_text) && $title_text === $image_data['title_value']);
+                            // Only consider synced if media library has data AND it matches page data
+                            $alt_synced = !empty($alt_text) && $alt_text === $image_data['alt_value'];
+                            $title_synced = !empty($title_text) && $title_text === $image_data['title_value'];
                             
-                            $is_already_synced = $alt_synced && $title_synced && !empty($alt_text); // At least alt must exist
+                            // At least alt must exist in media library and match page for it to be considered synced
+                            $is_already_synced = !empty($alt_text) && $alt_synced;
                             
                             // Only update if media library has data and it's different from current, or if media library is empty
                             if (!empty($alt_text) && $alt_text !== $image_data['alt_value']) {
@@ -218,16 +218,16 @@ class PDM_Bulk_Alt_Scanner {
                                     'type' => 'html'
                                 );
                             } else {
-                                error_log("PDM Debug: Cannot sync - missing data in media library");
+                                error_log("PDM Debug: Cannot sync - missing data in media library or no data to sync");
                                 
                                 // Determine the specific reason for not syncing
                                 $reason = '';
-                                if (empty($alt_text) && empty($title_text)) {
+                                if (empty($alt_text) && !empty($image_data['alt_value'])) {
+                                    $reason = __('Media library empty but page has data', 'pdm-bulk-alt');
+                                } elseif (empty($alt_text) && empty($image_data['alt_value'])) {
                                     $reason = __('Empty in media library', 'pdm-bulk-alt');
-                                } elseif (empty($alt_text)) {
-                                    $reason = __('Alt tag empty in media library', 'pdm-bulk-alt');
-                                } elseif (empty($title_text)) {
-                                    $reason = __('Title empty in media library', 'pdm-bulk-alt');
+                                } elseif (empty($title_text) && !empty($image_data['title_value'])) {
+                                    $reason = __('Title empty in media library but page has data', 'pdm-bulk-alt');
                                 } else {
                                     $reason = __('No changes needed', 'pdm-bulk-alt');
                                 }
@@ -645,12 +645,12 @@ class PDM_Bulk_Alt_Scanner {
                         $is_already_synced = false;
                         
                         // Check if already synced (same values in media library and page)
-                        $alt_synced = (empty($alt_text) && empty($shortcode_data['alt'])) || 
-                                     (!empty($alt_text) && $alt_text === $shortcode_data['alt']);
-                        $title_synced = (empty($title_text) && empty($shortcode_data['title'])) || 
-                                       (!empty($title_text) && $title_text === $shortcode_data['title']);
+                        // Only consider synced if media library has data AND it matches page data
+                        $alt_synced = !empty($alt_text) && $alt_text === $shortcode_data['alt'];
+                        $title_synced = !empty($title_text) && $title_text === $shortcode_data['title'];
                         
-                        $is_already_synced = $alt_synced && $title_synced && !empty($alt_text); // At least alt must exist
+                        // At least alt must exist in media library and match page for it to be considered synced
+                        $is_already_synced = !empty($alt_text) && $alt_synced;
                         
                         // Only update if media library has data and it's different from current
                         if (!empty($alt_text) && $alt_text !== $shortcode_data['alt']) {
@@ -684,16 +684,16 @@ class PDM_Bulk_Alt_Scanner {
                                 'type' => 'divi'
                             );
                         } else {
-                            error_log("PDM Debug: Cannot sync Divi - missing data in media library");
+                            error_log("PDM Debug: Cannot sync Divi - missing data in media library or no data to sync");
                             
                             // Determine the specific reason for not syncing
                             $reason = '';
-                            if (empty($alt_text) && empty($title_text)) {
+                            if (empty($alt_text) && !empty($shortcode_data['alt'])) {
+                                $reason = __('Media library empty but page has data', 'pdm-bulk-alt');
+                            } elseif (empty($alt_text) && empty($shortcode_data['alt'])) {
                                 $reason = __('Empty in media library', 'pdm-bulk-alt');
-                            } elseif (empty($alt_text)) {
-                                $reason = __('Alt tag empty in media library', 'pdm-bulk-alt');
-                            } elseif (empty($title_text)) {
-                                $reason = __('Title empty in media library', 'pdm-bulk-alt');
+                            } elseif (empty($title_text) && !empty($shortcode_data['title'])) {
+                                $reason = __('Title empty in media library but page has data', 'pdm-bulk-alt');
                             } else {
                                 $reason = __('No changes needed', 'pdm-bulk-alt');
                             }

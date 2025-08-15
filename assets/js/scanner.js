@@ -272,7 +272,14 @@
                             html += '<span class="pdm-status-success">✓ Synced</span>';
                         }
                     } else {
-                        if (image.reason && image.reason.indexOf('Empty in media library') !== -1) {
+                        // Check specific reason for not syncing
+                        if (image.reason && image.reason.indexOf('Media library empty but page has data') !== -1) {
+                            html += '<span class="pdm-status-not-synced">✗ Not Synced</span><br>';
+                            html += '<small>Media library is empty - add alt text to sync</small>';
+                        } else if (image.reason && image.reason.indexOf('Title empty in media library but page has data') !== -1) {
+                            html += '<span class="pdm-status-not-synced">✗ Not Synced</span><br>';
+                            html += '<small>Media library title is empty - add title to sync</small>';
+                        } else if (image.reason && image.reason.indexOf('Empty in media library') !== -1) {
                             html += '<span class="pdm-status-empty">— Empty in media library</span><br>';
                             html += '<small>Add data to media library to sync</small>';
                         } else if (image.reason && image.reason.indexOf('Alt tag empty') !== -1) {
