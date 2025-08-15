@@ -1,89 +1,112 @@
 /* PDM Bulk Alt Admin Styles */
 
-.pdm-alt-wrapper {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    max-width: 250px;
+/* Bulk Attributes Column Layout */
+.pdm-bulk-attributes-wrapper {
+    max-width: 300px;
+    padding: 8px;
+    background: #f9f9f9;
+    border-radius: 5px;
+    border: 1px solid #e0e0e0;
 }
 
-.pdm-alt-input {
+.pdm-attribute-row {
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #e9e9e9;
+}
+
+.pdm-attribute-row:last-of-type {
+    border-bottom: none;
+    margin-bottom: 8px;
+}
+
+.pdm-attribute-label {
+    display: block;
+    font-weight: 600;
+    font-size: 11px;
+    color: #23282d;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.pdm-attribute-input-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.pdm-attribute-input {
     flex: 1;
-    min-width: 120px;
-    padding: 4px 8px;
-    border: 1px solid #ddd;
+    padding: 6px 8px;
+    border: 1px solid #ccd0d4;
     border-radius: 3px;
     font-size: 12px;
     font-family: inherit;
-    resize: vertical;
+    background: white;
+    transition: border-color 0.2s ease;
 }
 
-.pdm-description-input {
-    min-height: 60px;
-    line-height: 1.4;
-}
-
-.pdm-alt-input:focus {
+.pdm-attribute-input:focus {
     border-color: #0073aa;
     outline: none;
     box-shadow: 0 0 0 1px #0073aa;
 }
 
-/* Hide columns in grid view */
-.upload-php .mode-grid .column-pdm_alt_text,
-.upload-php .mode-grid .column-pdm_title,
-.upload-php .mode-grid .column-pdm_caption,
-.upload-php .mode-grid .column-pdm_description {
-    display: none;
-}
-
-.pdm-save-alt {
-    padding: 8px 16px !important;
-    font-size: 13px !important;
-    line-height: 1.4 !important;
+.pdm-save-attribute {
+    padding: 6px 12px !important;
+    font-size: 11px !important;
+    line-height: 1.2 !important;
     height: auto !important;
-    min-height: 32px !important;
+    min-height: 28px !important;
     background: #0073aa;
     color: white;
     border: none;
     border-radius: 3px;
     cursor: pointer;
     font-weight: 500;
+    flex-shrink: 0;
+    transition: background 0.2s ease;
 }
 
-.pdm-save-alt:hover {
+.pdm-save-attribute:hover {
     background: #005a87;
 }
 
-.pdm-save-alt:disabled {
+.pdm-save-attribute:disabled {
     background: #ccc;
     cursor: not-allowed;
 }
 
-.pdm-alt-status {
-    font-size: 11px;
+.pdm-attribute-status {
+    display: block;
+    font-size: 10px;
     font-weight: 500;
+    margin-top: 2px;
+    min-height: 12px;
 }
 
-.pdm-alt-status.success {
+.pdm-attribute-status.success {
     color: #46b450;
 }
 
-.pdm-alt-status.error {
+.pdm-attribute-status.error {
     color: #dc3232;
 }
 
-.pdm-alt-status.saving {
+.pdm-attribute-status.saving {
     color: #0073aa;
 }
 
-.pdm-not-image {
-    font-style: italic;
-    color: #666;
-    font-size: 12px;
+/* Magnify Icon Row */
+.pdm-magnify-row {
+    display: flex;
+    justify-content: center;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #e9e9e9;
 }
 
-/* Magnify feature styles */
 .pdm-magnify-trigger {
     display: inline-flex;
     align-items: center;
@@ -91,34 +114,50 @@
     width: 32px;
     height: 32px;
     background: #0073aa;
-    border-radius: 3px;
+    border-radius: 50%;
     cursor: pointer;
-    position: relative;
-    margin-left: 5px;
     border: none;
     padding: 0;
-    box-sizing: border-box;
-    transition: background 0.2s ease;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0, 115, 170, 0.2);
 }
 
 .pdm-magnify-trigger .dashicons {
     color: white;
-    font-size: 18px;
-    width: 18px;
-    height: 18px;
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
     pointer-events: none;
 }
 
 .pdm-magnify-trigger:hover {
     background: #005a87;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 115, 170, 0.3);
 }
 
 .pdm-magnify-trigger:active {
     background: #003f5c;
-    transform: translateY(1px);
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(0, 115, 170, 0.2);
 }
 
-/* Image preview overlay */
+/* Hide columns in grid view */
+.upload-php .mode-grid .column-pdm_bulk_attributes {
+    display: none;
+}
+
+.pdm-not-image {
+    font-style: italic;
+    color: #666;
+    font-size: 12px;
+    text-align: center;
+    padding: 20px;
+    background: #f9f9f9;
+    border-radius: 3px;
+}
+
+/* Image preview overlay styles */
 .pdm-image-preview-overlay {
     position: fixed;
     top: 0;
@@ -142,7 +181,8 @@
 
 .pdm-image-preview-container {
     position: relative;
-    max-width: 400px;
+    max-width: 90vw;
+    max-height: 90vh;
     background: white;
     border-radius: 8px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
@@ -158,7 +198,8 @@
 
 .pdm-image-preview-img {
     max-width: 100%;
-    width: 100%;
+    max-height: 80vh;
+    width: auto;
     height: auto;
     display: block;
     border-radius: 4px;
@@ -196,14 +237,73 @@
 }
 
 /* Responsive adjustments */
+@media screen and (max-width: 1200px) {
+    .pdm-bulk-attributes-wrapper {
+        max-width: 250px;
+    }
+    
+    .pdm-attribute-input {
+        font-size: 11px;
+    }
+    
+    .pdm-save-attribute {
+        padding: 4px 8px !important;
+        font-size: 10px !important;
+    }
+}
+
 @media screen and (max-width: 782px) {
-    .pdm-alt-wrapper {
+    .pdm-bulk-attributes-wrapper {
+        max-width: 200px;
+        padding: 6px;
+    }
+    
+    .pdm-attribute-row {
+        margin-bottom: 8px;
+    }
+    
+    .pdm-attribute-input-wrapper {
         flex-direction: column;
         align-items: stretch;
         gap: 4px;
     }
     
-    .pdm-alt-input {
-        min-width: auto;
+    .pdm-attribute-input {
+        font-size: 11px;
+        padding: 4px 6px;
+    }
+    
+    .pdm-save-attribute {
+        padding: 4px 8px !important;
+        font-size: 10px !important;
+        min-height: 24px !important;
+    }
+    
+    .pdm-magnify-trigger {
+        width: 28px;
+        height: 28px;
+    }
+    
+    .pdm-magnify-trigger .dashicons {
+        font-size: 14px;
+        width: 14px;
+        height: 14px;
+    }
+}
+
+/* Admin table column width optimization */
+.wp-admin .wp-list-table .column-pdm_bulk_attributes {
+    width: 300px;
+}
+
+@media screen and (max-width: 1200px) {
+    .wp-admin .wp-list-table .column-pdm_bulk_attributes {
+        width: 250px;
+    }
+}
+
+@media screen and (max-width: 782px) {
+    .wp-admin .wp-list-table .column-pdm_bulk_attributes {
+        width: 200px;
     }
 }

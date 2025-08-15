@@ -10,13 +10,14 @@
     
     function initPDMBulkAlt() {
         // Handle save button clicks
-        $(document).on('click', '.pdm-save-alt', function(e) {
+        $(document).on('click', '.pdm-save-attribute', function(e) {
             e.preventDefault();
             
             var $button = $(this);
-            var $input = $button.siblings('.pdm-alt-input');
-            var $status = $button.siblings('.pdm-alt-status');
-            var attachmentId = $button.data('attachment-id');
+            var $wrapper = $button.closest('.pdm-bulk-attributes-wrapper');
+            var $input = $button.siblings('.pdm-attribute-input');
+            var $status = $wrapper.find('.pdm-attribute-status[data-field-type="' + $button.data('field-type') + '"]');
+            var attachmentId = $wrapper.data('attachment-id');
             var fieldType = $button.data('field-type');
             var fieldValue = $input.val().trim();
             
@@ -56,35 +57,26 @@
         });
         
         // Handle Enter key in input fields
-        $(document).on('keypress', '.pdm-alt-input', function(e) {
+        $(document).on('keypress', '.pdm-attribute-input', function(e) {
             if (e.which === 13) { // Enter key
                 e.preventDefault();
-                $(this).siblings('.pdm-save-alt').trigger('click');
+                var fieldType = $(this).data('field-type');
+                $(this).closest('.pdm-attribute-row').find('.pdm-save-attribute[data-field-type="' + fieldType + '"]').trigger('click');
             }
         });
         
-        // Auto-resize input fields based on content
-        $(document).on('input', '.pdm-alt-input', function() {
-            var $input = $(this);
-            var text = $input.val();
-            var fieldType = $input.data('field-type');
-            
-            // Clear any previous status when user starts typing
-            $input.siblings('.pdm-alt-status').removeClass('success error saving').text('');
-            
-            // Simple auto-resize for text inputs (not textareas)
-            if (!$input.is('textarea') && text.length > 20) {
-                $input.css('width', Math.min(text.length * 8, 200) + 'px');
-            } else if (!$input.is('textarea')) {
-                $input.css('width', '');
-            }
+        // Clear status when user starts typing
+        $(document).on('input', '.pdm-attribute-input', function() {
+            var fieldType = $(this).data('field-type');
+            var $wrapper = $(this).closest('.pdm-bulk-attributes-wrapper');
+            $wrapper.find('.pdm-attribute-status[data-field-type="' + fieldType + '"]').removeClass('success error saving').text('');
         });
         
         // Handle quick edit functionality
         $(document).on('click', '.editinline', function() {
             var $row = $(this).closest('tr');
             var attachmentId = $row.attr('id').replace('post-', '');
-            var currentAlt = $row.find('.pdm-alt-input').val() || '';
+            var currentAlt = $row.find('.pdm-attribute-input[data-field-type="alt"]').val() || '';
             
             // Wait for quick edit row to be created
             setTimeout(function() {

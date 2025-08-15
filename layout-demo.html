@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PDM Bulk Alt - New Layout Demo</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f1f1f1; }
+        .demo-container { max-width: 800px; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .before-after { display: flex; gap: 20px; margin-bottom: 30px; }
+        .demo-section { flex: 1; }
+        h1 { color: #0073aa; text-align: center; margin-bottom: 30px; }
+        h2 { color: #23282d; border-bottom: 2px solid #0073aa; padding-bottom: 8px; }
+        .old-layout { background: #fff2f2; padding: 15px; border-left: 4px solid #dc3232; border-radius: 4px; }
+        .new-layout { background: #f0fff4; padding: 15px; border-left: 4px solid #46b450; border-radius: 4px; }
+        .demo-table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+        .demo-table th, .demo-table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        .demo-table th { background: #f9f9f9; font-weight: 600; }
+        .bulk-attributes { max-width: 300px; padding: 8px; background: #f9f9f9; border-radius: 5px; border: 1px solid #e0e0e0; }
+        .attribute-row { margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #e9e9e9; }
+        .attribute-row:last-child { border-bottom: none; margin-bottom: 8px; }
+        .attribute-label { display: block; font-weight: 600; font-size: 11px; color: #23282d; margin-bottom: 4px; text-transform: uppercase; }
+        .attribute-input-wrapper { display: flex; align-items: center; gap: 6px; }
+        .attribute-input { flex: 1; padding: 6px 8px; border: 1px solid #ccd0d4; border-radius: 3px; font-size: 12px; }
+        .save-btn { padding: 6px 12px; font-size: 11px; background: #0073aa; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        .magnify-row { display: flex; justify-content: center; margin-top: 8px; padding-top: 8px; border-top: 1px solid #e9e9e9; }
+        .magnify-btn { width: 32px; height: 32px; background: #0073aa; border-radius: 50%; color: white; border: none; cursor: pointer; }
+        .feature-list { list-style: none; padding: 0; }
+        .feature-list li { padding: 8px 0; border-bottom: 1px solid #eee; }
+        .feature-list li:before { content: "✅"; margin-right: 8px; }
+    </style>
+</head>
+<body>
+    <div class="demo-container">
+        <h1>🎉 PDM Bulk Alt Plugin - New Clean Layout</h1>
+        
+        <div class="before-after">
+            <div class="demo-section">
+                <h2>❌ Before (Cluttered)</h2>
+                <div class="old-layout">
+                    <table class="demo-table">
+                        <tr>
+                            <th>Alt Text</th>
+                            <th>Title</th>
+                            <th>Caption</th>
+                            <th>Description</th>
+                        </tr>
+                        <tr>
+                            <td><input style="width:80px;" placeholder="Alt..."> <button>Save</button></td>
+                            <td><input style="width:80px;" placeholder="Title..."> <button>Save</button></td>
+                            <td><input style="width:80px;" placeholder="Caption..."> <button>Save</button></td>
+                            <td><input style="width:80px;" placeholder="Desc..."> <button>Save</button></td>
+                        </tr>
+                    </table>
+                    <p style="color: #dc3232; font-size: 12px;">Problems: Too wide, cluttered, hard to use on mobile</p>
+                </div>
+            </div>
+            
+            <div class="demo-section">
+                <h2>✅ After (Clean & Organized)</h2>
+                <div class="new-layout">
+                    <table class="demo-table">
+                        <tr>
+                            <th>File</th>
+                            <th>Bulk Attributes</th>
+                        </tr>
+                        <tr>
+                            <td>image.jpg</td>
+                            <td>
+                                <div class="bulk-attributes">
+                                    <div class="attribute-row">
+                                        <label class="attribute-label">Alt Text:</label>
+                                        <div class="attribute-input-wrapper">
+                                            <input class="attribute-input" placeholder="Enter alt text...">
+                                            <button class="save-btn">Save</button>
+                                        </div>
+                                    </div>
+                                    <div class="attribute-row">
+                                        <label class="attribute-label">Title:</label>
+                                        <div class="attribute-input-wrapper">
+                                            <input class="attribute-input" placeholder="Enter title...">
+                                            <button class="save-btn">Save</button>
+                                        </div>
+                                    </div>
+                                    <div class="attribute-row">
+                                        <label class="attribute-label">Caption:</label>
+                                        <div class="attribute-input-wrapper">
+                                            <input class="attribute-input" placeholder="Enter caption...">
+                                            <button class="save-btn">Save</button>
+                                        </div>
+                                    </div>
+                                    <div class="magnify-row">
+                                        <button class="magnify-btn">🔍</button>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    </table>
+                    <p style="color: #46b450; font-size: 12px;">Benefits: Compact, organized, mobile-friendly, easy to scan</p>
+                </div>
+            </div>
+        </div>
+        
+        <h2>✨ New Features & Improvements</h2>
+        <ul class="feature-list">
+            <li><strong>Single Clean Column:</strong> "Bulk Attributes" replaces 4 separate columns</li>
+            <li><strong>Stacked Layout:</strong> Alt, Title, Caption fields stacked vertically for better organization</li>
+            <li><strong>Individual Save Buttons:</strong> Each field has its own save button for precise control</li>
+            <li><strong>Magnify Icon:</strong> Centered at bottom for easy image preview</li>
+            <li><strong>Mobile Responsive:</strong> Works perfectly on all screen sizes</li>
+            <li><strong>Visual Feedback:</strong> Clear status indicators for each field</li>
+            <li><strong>Better UX:</strong> Cleaner interface, less overwhelming</li>
+            <li><strong>Space Efficient:</strong> Takes up less horizontal space</li>
+        </ul>
+        
+        <h2>🎯 How It Works</h2>
+        <ol>
+            <li>Go to <code>Media → Library</code> and switch to <strong>List view</strong></li>
+            <li>Look for the new <strong>"Bulk Attributes"</strong> column</li>
+            <li>Edit Alt Text, Title, or Caption in the organized layout</li>
+            <li>Click individual <strong>Save</strong> buttons for each field</li>
+            <li>Use the <strong>🔍 magnify icon</strong> to preview images</li>
+            <li>Run the scanner to bulk update all images across your site</li>
+        </ol>
+        
+        <div style="text-align: center; margin-top: 30px; padding: 20px; background: #f0f8ff; border-radius: 8px;">
+            <h3 style="color: #0073aa; margin-bottom: 10px;">🚀 Ready to Use!</h3>
+            <p>The plugin is now optimized with a much cleaner, more user-friendly interface.</p>
+        </div>
+    </div>
+</body>
+</html>
