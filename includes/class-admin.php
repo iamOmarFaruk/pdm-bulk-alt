@@ -96,7 +96,7 @@ class PDM_Bulk_Alt_Admin {
                 echo '</div>';
                 
                 // Description Field
-                $description = get_post_meta($post_id, '_wp_attachment_image_description', true);
+                $description = $attachment->post_content;
                 echo '<div class="pdm-attribute-row">';
                 echo '<label class="pdm-attribute-label">Description (optional):</label>';
                 echo '<textarea class="pdm-attribute-input pdm-textarea" ';
@@ -216,20 +216,21 @@ class PDM_Bulk_Alt_Admin {
             }
         }
         
-        // Update description (only if provided and different)
-        if (!empty($description)) {
-            $current_description = get_post_meta($attachment_id, '_wp_attachment_image_description', true);
-            if ($current_description !== $description) {
-                $description_result = update_post_meta($attachment_id, '_wp_attachment_image_description', $description);
-                if ($description_result !== false) {
-                    $updated_fields[] = 'Description';
-                    $results['description'] = 'updated';
-                } else {
-                    $results['description'] = 'unchanged';
-                }
+        // Update description (WordPress native description field)
+        $current_post = get_post($attachment_id);
+        if ($current_post && $current_post->post_content !== $description) {
+            $description_result = wp_update_post(array(
+                'ID' => $attachment_id,
+                'post_content' => $description
+            ));
+            if ($description_result && !is_wp_error($description_result)) {
+                $updated_fields[] = 'Description';
+                $results['description'] = 'updated';
             } else {
                 $results['description'] = 'unchanged';
             }
+        } else {
+            $results['description'] = 'unchanged';
         }
         
         // Prepare response message
