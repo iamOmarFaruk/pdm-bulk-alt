@@ -27,6 +27,10 @@ class PDM_Bulk_Alt_Admin {
         // Add quick edit functionality
         add_action('quick_edit_custom_box', array($this, 'add_quick_edit_fields'), 10, 2);
         add_action('save_post', array($this, 'save_quick_edit_data'));
+        
+        // Add hooks to clear scanner cache when media is updated
+        add_action('updated_post_meta', array($this, 'clear_scanner_cache_on_media_update'), 10, 4);
+        add_action('edit_attachment', array($this, 'clear_scanner_cache_on_attachment_edit'));
     }
     
     /**
@@ -233,6 +237,11 @@ class PDM_Bulk_Alt_Admin {
             $results['description'] = 'unchanged';
         }
         
+        // Clear scanner cache after successful updates
+        if (!empty($updated_fields)) {
+            $this->clear_scanner_cache_on_attachment_edit($attachment_id);
+        }
+        
         // Prepare response message
         if (!empty($updated_fields)) {
             $message = implode(', ', $updated_fields) . ' - Updated';
@@ -244,6 +253,40 @@ class PDM_Bulk_Alt_Admin {
             'message' => $message,
             'results' => $results
         ));
+    }
+    
+    /**
+     * Clear scanner cache when media is updated via meta
+     */
+    public function clear_scanner_cache_on_media_update($meta_id, $post_id, $meta_key, $meta_value) {
+        // Only clear cache for attachment alt text updates
+        if (get_post_type($post_id) === 'attachment' && $meta_key === '_wp_attachment_image_alt') {
+            $this->clear_scanner_cache($post_id);
+        }
+    }
+    
+    /**
+     * Clear scanner cache when attachment is edited
+     */
+    public function clear_scanner_cache_on_attachment_edit($attachment_id = null) {
+        if (get_post_type($attachment_id) === 'attachment') {
+            $this->clear_scanner_cache($attachment_id);
+        }
+    }
+    
+    /**
+     * Clear scanner cache - matches the method from scanner class
+     */
+    private function clear_scanner_cache($attachment_id = null) {
+        delete_transient('pdm_bulk_alt_media_cache');
+        set_transient('pdm_bulk_alt_media_last_modified', current_time('timestamp'), DAY_IN_SECONDS);
+        
+        // Log for debugging
+        if ($attachment_id) {
+            error_log("PDM Debug: Admin - Media cache cleared for attachment ID: " . $attachment_id);
+        } else {
+            error_log("PDM Debug: Admin - Media cache cleared (general)");
+        }
     }
     
     /**

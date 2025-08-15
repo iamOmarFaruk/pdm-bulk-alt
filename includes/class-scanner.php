@@ -10,6 +10,9 @@ if (!defined('ABSPATH')) {
 
 class PDM_Bulk_Alt_Scanner {
     
+    private $media_cache_key = 'pdm_bulk_alt_media_cache';
+    private $media_last_modified_key = 'pdm_bulk_alt_media_last_modified';
+    
     public function __construct() {
         // Add admin menu
         add_action('admin_menu', array($this, 'add_admin_menu'));
@@ -20,6 +23,115 @@ class PDM_Bulk_Alt_Scanner {
         
         // Enqueue scanner assets
         add_action('admin_enqueue_scripts', array($this, 'enqueue_scanner_assets'));
+        
+        // Add hooks to detect media library changes and clear cache
+        add_action('add_attachment', array($this, 'clear_media_cache'));
+        add_action('edit_attachment', array($this, 'clear_media_cache'));
+        add_action('delete_attachment', array($this, 'clear_media_cache'));
+        add_action('updated_post_meta', array($this, 'handle_meta_update'), 10, 4);
+        add_action('wp_ajax_pdm_update_alt_text', array($this, 'clear_media_cache_after_update'), 20);
+        
+        // Hook into WordPress attachment updates (covers grid view changes)
+        add_action('wp_ajax_save-attachment-compat', array($this, 'clear_media_cache'), 1);
+        add_action('wp_ajax_save-attachment', array($this, 'clear_media_cache'), 1);
+        
+        // Hook into media library grid view specific actions
+        add_action('wp_ajax_query-attachments', array($this, 'clear_media_cache_before_query'), 1);
+        
+        // Clear cache when posts are updated (covers bulk actions)
+        add_action('post_updated', array($this, 'handle_post_update'), 10, 3);
+        
+        // Hook into attachment metadata updates (grid view edits)
+        add_filter('wp_update_attachment_metadata', array($this, 'handle_attachment_metadata_update'), 10, 2);
+    }
+    
+    /**
+     * Force refresh media cache to ensure latest data
+     */
+    public function force_refresh_media_cache() {
+        // Clear all WordPress object caches
+        wp_cache_flush();
+        
+        // Clear specific media-related transients
+        delete_transient($this->media_cache_key);
+        delete_transient($this->media_last_modified_key);
+        
+        // Clear post and meta caches
+        global $wpdb;
+        $wpdb->query("DELETE FROM {$wpdb->options} WHERE option_name LIKE '%_transient_%media%' OR option_name LIKE '%_transient_%attachment%'");
+        
+        // Clear any persistent object cache
+        if (function_exists('wp_cache_delete_group')) {
+            wp_cache_delete_group('posts');
+            wp_cache_delete_group('post_meta');
+        }
+        
+        error_log("PDM Debug: Forced refresh of all media caches");
+    }
+    
+    /**
+     * Clear media cache when media is modified
+     */
+    public function clear_media_cache($attachment_id = null) {
+        delete_transient($this->media_cache_key);
+        set_transient($this->media_last_modified_key, current_time('timestamp'), DAY_IN_SECONDS);
+        
+        // Log for debugging
+        if ($attachment_id) {
+            error_log("PDM Debug: Media cache cleared for attachment ID: " . $attachment_id);
+        } else {
+            error_log("PDM Debug: Media cache cleared (general)");
+        }
+    }
+    
+    /**
+     * Clear media cache after our own updates
+     */
+    public function clear_media_cache_after_update() {
+        $this->clear_media_cache();
+    }
+    
+    /**
+     * Handle meta updates and clear cache if it's attachment meta
+     */
+    public function handle_meta_update($meta_id, $post_id, $meta_key, $meta_value) {
+        // Check if this is an attachment meta update
+        if (get_post_type($post_id) === 'attachment') {
+            // Clear cache for any attachment meta changes
+            if (in_array($meta_key, array('_wp_attachment_image_alt', '_wp_attached_file'))) {
+                $this->clear_media_cache($post_id);
+            }
+        }
+    }
+    
+    /**
+     * Handle post updates and clear cache if it's an attachment
+     */
+    public function handle_post_update($post_id, $post_after, $post_before) {
+        if (get_post_type($post_id) === 'attachment') {
+            // Check if title, caption, or description changed
+            if ($post_after->post_title !== $post_before->post_title ||
+                $post_after->post_excerpt !== $post_before->post_excerpt ||
+                $post_after->post_content !== $post_before->post_content) {
+                $this->clear_media_cache($post_id);
+            }
+        }
+    }
+    
+    /**
+     * Clear cache before media queries to ensure fresh data
+     */
+    public function clear_media_cache_before_query() {
+        $this->clear_media_cache();
+    }
+    
+    /**
+     * Handle attachment metadata updates (grid view and other changes)
+     */
+    public function handle_attachment_metadata_update($data, $post_id) {
+        // Clear cache whenever attachment metadata is updated
+        $this->clear_media_cache($post_id);
+        return $data;
     }
     
     /**
@@ -98,6 +210,8 @@ class PDM_Bulk_Alt_Scanner {
         // Clear previous scan data on first run
         if ($offset === 0) {
             delete_option('pdm_bulk_alt_scan_results');
+            // Force clear all media-related caches at scan start
+            $this->force_refresh_media_cache();
         }
         
         // Get all post types including custom ones
@@ -169,77 +283,97 @@ class PDM_Bulk_Alt_Scanner {
                         $attachment_id = $this->get_attachment_id_from_url($image_data['src']);
                         
                         if ($attachment_id) {
-                            $alt_text = get_post_meta($attachment_id, '_wp_attachment_image_alt', true);
-                            $title_text = get_the_title($attachment_id);
-                            error_log("PDM Debug: Found attachment ID: " . $attachment_id . ", alt text: '" . $alt_text . "', title text: '" . $title_text . "'");
+                            // Get fresh attachment data bypassing all caches
+                            $fresh_data = $this->get_fresh_attachment_data($attachment_id);
                             
-                            $tag_updated = false;
-                            $new_img_tag = $img_tag;
-                            $is_already_synced = false;
-                            
-                            // Check if already synced (same values in media library and page)
-                            // Only consider synced if media library has data AND it matches page data
-                            $alt_synced = !empty($alt_text) && $alt_text === $image_data['alt_value'];
-                            $title_synced = !empty($title_text) && $title_text === $image_data['title_value'];
-                            
-                            // At least alt must exist in media library and match page for it to be considered synced
-                            $is_already_synced = !empty($alt_text) && $alt_synced;
-                            
-                            // Only update if media library has data and it's different from current, or if media library is empty
-                            if (!empty($alt_text) && $alt_text !== $image_data['alt_value']) {
-                                $new_img_tag = $this->add_alt_to_image_tag($new_img_tag, $alt_text);
-                                $tag_updated = true;
-                            }
-                            
-                            // Update title tag if media library has title and it's different from current
-                            if (!empty($title_text) && $title_text !== $image_data['title_value']) {
-                                $new_img_tag = $this->add_title_to_image_tag($new_img_tag, $title_text);
-                                $tag_updated = true;
-                            }
-                            
-                            if ($is_already_synced || ($tag_updated && $new_img_tag !== $img_tag)) {
-                                if ($tag_updated) {
-                                    $updated_content = str_replace($img_tag, $new_img_tag, $updated_content);
-                                    $content_changed = true;
-                                    $images_updated++;
-                                    error_log("PDM Debug: Updated HTML image tag successfully");
+                            if ($fresh_data) {
+                                $alt_text = $fresh_data['alt_text'];
+                                $title_text = $fresh_data['title'];
+                                
+                                error_log("PDM Debug: Found attachment ID: " . $attachment_id . ", fresh alt text: '" . $alt_text . "', fresh title text: '" . $title_text . "'");
+                                
+                                $tag_updated = false;
+                                $new_img_tag = $img_tag;
+                                $is_already_synced = false;
+                                
+                                // Check if already synced (same values in media library and page)
+                                // Only consider synced if media library has data AND it matches page data
+                                $alt_synced = !empty($alt_text) && $alt_text === $image_data['alt_value'];
+                                $title_synced = !empty($title_text) && $title_text === $image_data['title_value'];
+                                
+                                // At least alt must exist in media library and match page for it to be considered synced
+                                $is_already_synced = !empty($alt_text) && $alt_synced;
+                                
+                                // Only update if media library has data and it's different from current, or if media library is empty
+                                if (!empty($alt_text) && $alt_text !== $image_data['alt_value']) {
+                                    $new_img_tag = $this->add_alt_to_image_tag($new_img_tag, $alt_text);
+                                    $tag_updated = true;
                                 }
                                 
-                                $post_images[] = array(
-                                    'src' => $image_data['src'],
-                                    'alt_in_media' => $alt_text,
-                                    'alt_in_page' => !empty($alt_text) ? $alt_text : $image_data['alt_value'],
-                                    'title_in_media' => $title_text,
-                                    'title_in_page' => !empty($title_text) ? $title_text : $image_data['title_value'],
-                                    'success' => true,
-                                    'already_synced' => $is_already_synced,
-                                    'original_alt' => $image_data['alt_value'],
-                                    'original_title' => $image_data['title_value'],
-                                    'type' => 'html'
-                                );
-                            } else {
-                                error_log("PDM Debug: Cannot sync - missing data in media library or no data to sync");
+                                // Update title tag if media library has title and it's different from current
+                                if (!empty($title_text) && $title_text !== $image_data['title_value']) {
+                                    $new_img_tag = $this->add_title_to_image_tag($new_img_tag, $title_text);
+                                    $tag_updated = true;
+                                }
                                 
-                                // Determine the specific reason for not syncing
-                                $reason = '';
-                                if (empty($alt_text) && !empty($image_data['alt_value'])) {
-                                    $reason = __('Media library empty but page has data', 'pdm-bulk-alt');
-                                } elseif (empty($alt_text) && empty($image_data['alt_value'])) {
-                                    $reason = __('Empty in media library', 'pdm-bulk-alt');
-                                } elseif (empty($title_text) && !empty($image_data['title_value'])) {
-                                    $reason = __('Title empty in media library but page has data', 'pdm-bulk-alt');
+                                if ($is_already_synced || ($tag_updated && $new_img_tag !== $img_tag)) {
+                                    if ($tag_updated) {
+                                        $updated_content = str_replace($img_tag, $new_img_tag, $updated_content);
+                                        $content_changed = true;
+                                        $images_updated++;
+                                        error_log("PDM Debug: Updated HTML image tag successfully");
+                                    }
+                                    
+                                    $post_images[] = array(
+                                        'src' => $image_data['src'],
+                                        'alt_in_media' => $alt_text,
+                                        'alt_in_page' => !empty($alt_text) ? $alt_text : $image_data['alt_value'],
+                                        'title_in_media' => $title_text,
+                                        'title_in_page' => !empty($title_text) ? $title_text : $image_data['title_value'],
+                                        'success' => true,
+                                        'already_synced' => $is_already_synced,
+                                        'original_alt' => $image_data['alt_value'],
+                                        'original_title' => $image_data['title_value'],
+                                        'type' => 'html'
+                                    );
                                 } else {
-                                    $reason = __('No changes needed', 'pdm-bulk-alt');
+                                    error_log("PDM Debug: Cannot sync - missing data in media library or no data to sync");
+                                    
+                                    // Determine the specific reason for not syncing
+                                    $reason = '';
+                                    if (empty($alt_text) && !empty($image_data['alt_value'])) {
+                                        $reason = __('Media library empty but page has data', 'pdm-bulk-alt');
+                                    } elseif (empty($alt_text) && empty($image_data['alt_value'])) {
+                                        $reason = __('Empty in media library', 'pdm-bulk-alt');
+                                    } elseif (empty($title_text) && !empty($image_data['title_value'])) {
+                                        $reason = __('Title empty in media library but page has data', 'pdm-bulk-alt');
+                                    } else {
+                                        $reason = __('No changes needed', 'pdm-bulk-alt');
+                                    }
+                                    
+                                    $post_images[] = array(
+                                        'src' => $image_data['src'],
+                                        'alt_in_media' => $alt_text,
+                                        'alt_in_page' => $image_data['alt_value'],
+                                        'title_in_media' => $title_text,
+                                        'title_in_page' => $image_data['title_value'],
+                                        'success' => false,
+                                        'reason' => $reason,
+                                        'original_alt' => $image_data['alt_value'],
+                                        'type' => 'html'
+                                    );
                                 }
-                                
+                            } else {
+                                // Could not get fresh data
+                                error_log("PDM Debug: Could not get fresh attachment data for ID: " . $attachment_id);
                                 $post_images[] = array(
                                     'src' => $image_data['src'],
-                                    'alt_in_media' => $alt_text,
+                                    'alt_in_media' => '',
                                     'alt_in_page' => $image_data['alt_value'],
-                                    'title_in_media' => $title_text,
+                                    'title_in_media' => '',
                                     'title_in_page' => $image_data['title_value'],
                                     'success' => false,
-                                    'reason' => $reason,
+                                    'reason' => __('Could not retrieve attachment data', 'pdm-bulk-alt'),
                                     'original_alt' => $image_data['alt_value'],
                                     'type' => 'html'
                                 );
@@ -531,17 +665,20 @@ class PDM_Bulk_Alt_Scanner {
     }
     
     /**
-     * Get attachment ID from image URL
+     * Get attachment ID from image URL - Enhanced with cache busting
      */
     private function get_attachment_id_from_url($url) {
         // Clean the URL
         $url = trim($url);
         
+        // Force fresh database query by bypassing WordPress caches
+        wp_cache_flush();
+        
         // Remove protocol and domain variations
         $upload_dir = wp_upload_dir();
         $base_url = $upload_dir['baseurl'];
         
-        // Try with current domain
+        // Try with current domain first
         $attachment_id = attachment_url_to_postid($url);
         
         if (!$attachment_id) {
@@ -573,12 +710,13 @@ class PDM_Bulk_Alt_Scanner {
         }
         
         if (!$attachment_id) {
-            // Last resort: search by filename
+            // Last resort: direct database search by filename
             $filename = basename($url);
             global $wpdb;
             
+            // Force fresh database query
             $attachment = $wpdb->get_var($wpdb->prepare(
-                "SELECT post_id FROM $wpdb->postmeta WHERE meta_key = '_wp_attached_file' AND meta_value LIKE %s",
+                "SELECT post_id FROM $wpdb->postmeta WHERE meta_key = '_wp_attached_file' AND meta_value LIKE %s ORDER BY post_id DESC LIMIT 1",
                 '%' . $wpdb->esc_like($filename)
             ));
             
@@ -588,6 +726,42 @@ class PDM_Bulk_Alt_Scanner {
         }
         
         return $attachment_id;
+    }
+    
+    /**
+     * Get fresh attachment metadata bypassing caches
+     */
+    private function get_fresh_attachment_data($attachment_id) {
+        // Clear any cached data for this specific attachment
+        wp_cache_delete($attachment_id, 'posts');
+        wp_cache_delete($attachment_id, 'post_meta');
+        clean_post_cache($attachment_id);
+        
+        // Get fresh attachment data directly from database
+        global $wpdb;
+        
+        // Get post data
+        $post_data = $wpdb->get_row($wpdb->prepare(
+            "SELECT post_title, post_excerpt, post_content FROM $wpdb->posts WHERE ID = %d AND post_type = 'attachment'",
+            $attachment_id
+        ));
+        
+        // Get alt text directly from database
+        $alt_text = $wpdb->get_var($wpdb->prepare(
+            "SELECT meta_value FROM $wpdb->postmeta WHERE post_id = %d AND meta_key = '_wp_attachment_image_alt'",
+            $attachment_id
+        ));
+        
+        if (!$post_data) {
+            return false;
+        }
+        
+        return array(
+            'alt_text' => $alt_text ? $alt_text : '',
+            'title' => $post_data->post_title ? $post_data->post_title : '',
+            'caption' => $post_data->post_excerpt ? $post_data->post_excerpt : '',
+            'description' => $post_data->post_content ? $post_data->post_content : ''
+        );
     }
     
     /**
@@ -635,77 +809,96 @@ class PDM_Bulk_Alt_Scanner {
                     $attachment_id = $this->get_attachment_id_from_url($shortcode_data['src']);
                     
                     if ($attachment_id) {
-                        $alt_text = get_post_meta($attachment_id, '_wp_attachment_image_alt', true);
-                        $title_text = get_the_title($attachment_id);
+                        // Get fresh attachment data bypassing all caches
+                        $fresh_data = $this->get_fresh_attachment_data($attachment_id);
                         
-                        error_log("PDM Debug: Divi - Found attachment ID: " . $attachment_id . ", alt text: '" . $alt_text . "', title text: '" . $title_text . "'");
-                        
-                        $shortcode_updated = false;
-                        $new_shortcode = $shortcode;
-                        $is_already_synced = false;
-                        
-                        // Check if already synced (same values in media library and page)
-                        // Only consider synced if media library has data AND it matches page data
-                        $alt_synced = !empty($alt_text) && $alt_text === $shortcode_data['alt'];
-                        $title_synced = !empty($title_text) && $title_text === $shortcode_data['title'];
-                        
-                        // At least alt must exist in media library and match page for it to be considered synced
-                        $is_already_synced = !empty($alt_text) && $alt_synced;
-                        
-                        // Only update if media library has data and it's different from current
-                        if (!empty($alt_text) && $alt_text !== $shortcode_data['alt']) {
-                            $new_shortcode = $this->add_alt_to_divi_shortcode($new_shortcode, $alt_text);
-                            $shortcode_updated = true;
-                        }
-                        
-                        // Update title tag if media library has title and it's different from current
-                        if (!empty($title_text) && $title_text !== $shortcode_data['title']) {
-                            $new_shortcode = $this->add_title_to_divi_shortcode($new_shortcode, $title_text);
-                            $shortcode_updated = true;
-                        }
-                        
-                        if ($is_already_synced || ($shortcode_updated && $new_shortcode !== $shortcode)) {
-                            if ($shortcode_updated) {
-                                $updated_content = str_replace($shortcode, $new_shortcode, $updated_content);
-                                $content_changed = true;
-                                error_log("PDM Debug: Updated Divi shortcode successfully");
+                        if ($fresh_data) {
+                            $alt_text = $fresh_data['alt_text'];
+                            $title_text = $fresh_data['title'];
+                            
+                            error_log("PDM Debug: Divi - Found attachment ID: " . $attachment_id . ", fresh alt text: '" . $alt_text . "', fresh title text: '" . $title_text . "'");
+                            
+                            $shortcode_updated = false;
+                            $new_shortcode = $shortcode;
+                            $is_already_synced = false;
+                            
+                            // Check if already synced (same values in media library and page)
+                            // Only consider synced if media library has data AND it matches page data
+                            $alt_synced = !empty($alt_text) && $alt_text === $shortcode_data['alt'];
+                            $title_synced = !empty($title_text) && $title_text === $shortcode_data['title'];
+                            
+                            // At least alt must exist in media library and match page for it to be considered synced
+                            $is_already_synced = !empty($alt_text) && $alt_synced;
+                            
+                            // Only update if media library has data and it's different from current
+                            if (!empty($alt_text) && $alt_text !== $shortcode_data['alt']) {
+                                $new_shortcode = $this->add_alt_to_divi_shortcode($new_shortcode, $alt_text);
+                                $shortcode_updated = true;
                             }
                             
-                            $images[] = array(
-                                'src' => $shortcode_data['src'],
-                                'alt_in_media' => $alt_text,
-                                'alt_in_page' => !empty($alt_text) ? $alt_text : $shortcode_data['alt'],
-                                'title_in_media' => $title_text,
-                                'title_in_page' => !empty($title_text) ? $title_text : $shortcode_data['title'],
-                                'success' => true,
-                                'already_synced' => $is_already_synced,
-                                'original_alt' => $shortcode_data['alt'],
-                                'original_title' => $shortcode_data['title'],
-                                'type' => 'divi'
-                            );
-                        } else {
-                            error_log("PDM Debug: Cannot sync Divi - missing data in media library or no data to sync");
+                            // Update title tag if media library has title and it's different from current
+                            if (!empty($title_text) && $title_text !== $shortcode_data['title']) {
+                                $new_shortcode = $this->add_title_to_divi_shortcode($new_shortcode, $title_text);
+                                $shortcode_updated = true;
+                            }
                             
-                            // Determine the specific reason for not syncing
-                            $reason = '';
-                            if (empty($alt_text) && !empty($shortcode_data['alt'])) {
-                                $reason = __('Media library empty but page has data', 'pdm-bulk-alt');
-                            } elseif (empty($alt_text) && empty($shortcode_data['alt'])) {
-                                $reason = __('Empty in media library', 'pdm-bulk-alt');
-                            } elseif (empty($title_text) && !empty($shortcode_data['title'])) {
-                                $reason = __('Title empty in media library but page has data', 'pdm-bulk-alt');
+                            if ($is_already_synced || ($shortcode_updated && $new_shortcode !== $shortcode)) {
+                                if ($shortcode_updated) {
+                                    $updated_content = str_replace($shortcode, $new_shortcode, $updated_content);
+                                    $content_changed = true;
+                                    error_log("PDM Debug: Updated Divi shortcode successfully");
+                                }
+                                
+                                $images[] = array(
+                                    'src' => $shortcode_data['src'],
+                                    'alt_in_media' => $alt_text,
+                                    'alt_in_page' => !empty($alt_text) ? $alt_text : $shortcode_data['alt'],
+                                    'title_in_media' => $title_text,
+                                    'title_in_page' => !empty($title_text) ? $title_text : $shortcode_data['title'],
+                                    'success' => true,
+                                    'already_synced' => $is_already_synced,
+                                    'original_alt' => $shortcode_data['alt'],
+                                    'original_title' => $shortcode_data['title'],
+                                    'type' => 'divi'
+                                );
                             } else {
-                                $reason = __('No changes needed', 'pdm-bulk-alt');
+                                error_log("PDM Debug: Cannot sync Divi - missing data in media library or no data to sync");
+                                
+                                // Determine the specific reason for not syncing
+                                $reason = '';
+                                if (empty($alt_text) && !empty($shortcode_data['alt'])) {
+                                    $reason = __('Media library empty but page has data', 'pdm-bulk-alt');
+                                } elseif (empty($alt_text) && empty($shortcode_data['alt'])) {
+                                    $reason = __('Empty in media library', 'pdm-bulk-alt');
+                                } elseif (empty($title_text) && !empty($shortcode_data['title'])) {
+                                    $reason = __('Title empty in media library but page has data', 'pdm-bulk-alt');
+                                } else {
+                                    $reason = __('No changes needed', 'pdm-bulk-alt');
+                                }
+                                
+                                $images[] = array(
+                                    'src' => $shortcode_data['src'],
+                                    'alt_in_media' => $alt_text,
+                                    'alt_in_page' => $shortcode_data['alt'],
+                                    'title_in_media' => $title_text,
+                                    'title_in_page' => $shortcode_data['title'],
+                                    'success' => false,
+                                    'reason' => $reason,
+                                    'original_alt' => $shortcode_data['alt'],
+                                    'type' => 'divi'
+                                );
                             }
-                            
+                        } else {
+                            // Could not get fresh data
+                            error_log("PDM Debug: Could not get fresh Divi attachment data for ID: " . $attachment_id);
                             $images[] = array(
                                 'src' => $shortcode_data['src'],
-                                'alt_in_media' => $alt_text,
+                                'alt_in_media' => '',
                                 'alt_in_page' => $shortcode_data['alt'],
-                                'title_in_media' => $title_text,
+                                'title_in_media' => '',
                                 'title_in_page' => $shortcode_data['title'],
                                 'success' => false,
-                                'reason' => $reason,
+                                'reason' => __('Could not retrieve attachment data', 'pdm-bulk-alt'),
                                 'original_alt' => $shortcode_data['alt'],
                                 'type' => 'divi'
                             );
