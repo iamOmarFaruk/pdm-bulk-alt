@@ -70,7 +70,7 @@ class PDM_Bulk_Alt_Admin {
                 
                 // Title Field
                 echo '<div class="pdm-attribute-row">';
-                echo '<label class="pdm-attribute-label">Title:</label>';
+                echo '<label class="pdm-attribute-label">Title (optional):</label>';
                 echo '<input type="text" class="pdm-attribute-input" ';
                 echo 'value="' . esc_attr($title) . '" ';
                 echo 'data-field-type="title" ';
@@ -79,20 +79,20 @@ class PDM_Bulk_Alt_Admin {
                 
                 // Alt Text Field
                 echo '<div class="pdm-attribute-row">';
-                echo '<label class="pdm-attribute-label">Alt Text:</label>';
+                echo '<label class="pdm-attribute-label">Alt Text (required):</label>';
                 echo '<input type="text" class="pdm-attribute-input" ';
                 echo 'value="' . esc_attr($alt_text) . '" ';
                 echo 'data-field-type="alt" ';
-                echo 'placeholder="Enter alt text...">';
+                echo 'placeholder="Enter alt text..." required>';
                 echo '</div>';
                 
                 // Caption Field
                 echo '<div class="pdm-attribute-row">';
-                echo '<label class="pdm-attribute-label">Caption:</label>';
-                echo '<input type="text" class="pdm-attribute-input" ';
-                echo 'value="' . esc_attr($caption) . '" ';
+                echo '<label class="pdm-attribute-label">Caption (optional):</label>';
+                echo '<textarea class="pdm-attribute-input pdm-textarea" ';
                 echo 'data-field-type="caption" ';
-                echo 'placeholder="Enter caption...">';
+                echo 'rows="3" ';
+                echo 'placeholder="Enter caption...">' . esc_textarea($caption) . '</textarea>';
                 echo '</div>';
                 
                 // Single Save Button at bottom
@@ -143,6 +143,11 @@ class PDM_Bulk_Alt_Admin {
         $alt_text = sanitize_textarea_field($_POST['alt_text']);
         $title = sanitize_text_field($_POST['title']);
         $caption = sanitize_textarea_field($_POST['caption']);
+        
+        // Validate required fields
+        if (empty(trim($alt_text))) {
+            wp_send_json_error(__('Alt text is required and cannot be empty', 'pdm-bulk-alt'));
+        }
         
         $results = array();
         $success_count = 0;

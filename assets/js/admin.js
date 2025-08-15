@@ -23,6 +23,12 @@
             var altValue = $wrapper.find('.pdm-attribute-input[data-field-type="alt"]').val().trim();
             var captionValue = $wrapper.find('.pdm-attribute-input[data-field-type="caption"]').val().trim();
             
+            // Validate required fields
+            if (!altValue) {
+                $status.removeClass('saving success partial').addClass('error').text('Alt text is required');
+                return;
+            }
+            
             // Disable button and show saving status
             $button.prop('disabled', true).text('Saving...');
             $status.removeClass('success error partial').addClass('saving').text(pdmBulkAlt.messages.saving);

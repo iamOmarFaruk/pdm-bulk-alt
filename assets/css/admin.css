@@ -72,22 +72,47 @@
     letter-spacing: 0.5px;
 }
 
+/* Label color variations for required/optional */
+.pdm-attribute-label:has(+ input[required]),
+.pdm-attribute-label:has(+ textarea[required]) {
+    color: #dc3232;
+}
+
+.pdm-attribute-row:has(input[required]) .pdm-attribute-label {
+    color: #dc3232;
+}
+
+/* Input Fields */
 .pdm-attribute-input {
     width: 100%;
-    padding: 8px 10px;
-    border: 1px solid #ccd0d4;
+    padding: 6px 10px;
+    border: 1px solid #ddd;
     border-radius: 4px;
     font-size: 13px;
-    font-family: inherit;
-    background: white;
-    transition: border-color 0.2s ease;
     box-sizing: border-box;
+    transition: border-color 0.2s ease;
 }
 
 .pdm-attribute-input:focus {
     border-color: #0073aa;
     outline: none;
     box-shadow: 0 0 0 1px #0073aa;
+}
+
+.pdm-attribute-input[required] {
+    border-left: 3px solid #dc3232;
+}
+
+.pdm-attribute-input[required]:valid {
+    border-left: 3px solid #46b450;
+}
+
+/* Textarea specific styling */
+.pdm-textarea {
+    resize: vertical;
+    min-height: 60px;
+    font-family: inherit;
+    line-height: 1.4;
 }
 
 /* Save All Button */
