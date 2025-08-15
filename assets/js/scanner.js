@@ -224,7 +224,6 @@
                     html += '<td>';
                     if (image.title_in_media && image.title_in_page) {
                         if (image.title_in_media === image.title_in_page) {
-                            html += '<span class="pdm-sync-status">✓ Synced</span><br>';
                             html += '<span class="pdm-title-text">' + image.title_in_media + '</span>';
                         } else {
                             html += '<strong>Media:</strong> ' + (image.title_in_media || '<em>Empty</em>') + '<br>';
