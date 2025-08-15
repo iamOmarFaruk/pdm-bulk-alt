@@ -150,68 +150,72 @@ class PDM_Bulk_Alt_Admin {
         }
         
         $results = array();
-        $success_count = 0;
-        $error_count = 0;
+        $updated_fields = array();
+        $unchanged_fields = array();
         
-        // Update alt text
-        if (isset($_POST['alt_text'])) {
+        // Update alt text (always process since it's required)
+        $current_alt = get_post_meta($attachment_id, '_wp_attachment_image_alt', true);
+        if ($current_alt !== $alt_text) {
             $alt_result = update_post_meta($attachment_id, '_wp_attachment_image_alt', $alt_text);
             if ($alt_result !== false) {
-                $results['alt'] = 'success';
-                $success_count++;
+                $updated_fields[] = 'Alt';
+                $results['alt'] = 'updated';
             } else {
-                $results['alt'] = 'error';
-                $error_count++;
+                $results['alt'] = 'unchanged';
+            }
+        } else {
+            $results['alt'] = 'unchanged';
+        }
+        
+        // Update title (only if provided and different)
+        if (!empty($title)) {
+            $current_post = get_post($attachment_id);
+            if ($current_post && $current_post->post_title !== $title) {
+                $title_result = wp_update_post(array(
+                    'ID' => $attachment_id,
+                    'post_title' => $title
+                ));
+                if ($title_result && !is_wp_error($title_result)) {
+                    $updated_fields[] = 'Title';
+                    $results['title'] = 'updated';
+                } else {
+                    $results['title'] = 'unchanged';
+                }
+            } else {
+                $results['title'] = 'unchanged';
             }
         }
         
-        // Update title
-        if (isset($_POST['title'])) {
-            $title_result = wp_update_post(array(
-                'ID' => $attachment_id,
-                'post_title' => $title
-            ));
-            if ($title_result && !is_wp_error($title_result)) {
-                $results['title'] = 'success';
-                $success_count++;
+        // Update caption (only if provided and different)
+        if (!empty($caption)) {
+            $current_post = get_post($attachment_id);
+            if ($current_post && $current_post->post_excerpt !== $caption) {
+                $caption_result = wp_update_post(array(
+                    'ID' => $attachment_id,
+                    'post_excerpt' => $caption
+                ));
+                if ($caption_result && !is_wp_error($caption_result)) {
+                    $updated_fields[] = 'Caption';
+                    $results['caption'] = 'updated';
+                } else {
+                    $results['caption'] = 'unchanged';
+                }
             } else {
-                $results['title'] = 'error';
-                $error_count++;
-            }
-        }
-        
-        // Update caption
-        if (isset($_POST['caption'])) {
-            $caption_result = wp_update_post(array(
-                'ID' => $attachment_id,
-                'post_excerpt' => $caption
-            ));
-            if ($caption_result && !is_wp_error($caption_result)) {
-                $results['caption'] = 'success';
-                $success_count++;
-            } else {
-                $results['caption'] = 'error';
-                $error_count++;
+                $results['caption'] = 'unchanged';
             }
         }
         
         // Prepare response message
-        if ($error_count === 0) {
-            $message = sprintf(__('All attributes updated successfully (%d fields)', 'pdm-bulk-alt'), $success_count);
-            wp_send_json_success(array(
-                'message' => $message,
-                'results' => $results
-            ));
-        } else if ($success_count > 0) {
-            $message = sprintf(__('Partially updated: %d succeeded, %d failed', 'pdm-bulk-alt'), $success_count, $error_count);
-            wp_send_json_success(array(
-                'message' => $message,
-                'results' => $results,
-                'partial' => true
-            ));
+        if (!empty($updated_fields)) {
+            $message = implode(', ', $updated_fields) . ' - Updated';
         } else {
-            wp_send_json_error(__('Failed to update any attributes', 'pdm-bulk-alt'));
+            $message = 'Nothing to update';
         }
+        
+        wp_send_json_success(array(
+            'message' => $message,
+            'results' => $results
+        ));
     }
     
     /**

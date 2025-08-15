@@ -72,16 +72,6 @@
     letter-spacing: 0.5px;
 }
 
-/* Label color variations for required/optional */
-.pdm-attribute-label:has(+ input[required]),
-.pdm-attribute-label:has(+ textarea[required]) {
-    color: #dc3232;
-}
-
-.pdm-attribute-row:has(input[required]) .pdm-attribute-label {
-    color: #dc3232;
-}
-
 /* Input Fields */
 .pdm-attribute-input {
     width: 100%;
@@ -97,14 +87,6 @@
     border-color: #0073aa;
     outline: none;
     box-shadow: 0 0 0 1px #0073aa;
-}
-
-.pdm-attribute-input[required] {
-    border-left: 3px solid #dc3232;
-}
-
-.pdm-attribute-input[required]:valid {
-    border-left: 3px solid #46b450;
 }
 
 /* Textarea specific styling */
@@ -179,10 +161,6 @@
 
 .pdm-save-status.saving {
     color: #0073aa;
-}
-
-.pdm-save-status.partial {
-    color: #f56e28;
 }
 
 /* Hide columns in grid view */

@@ -25,7 +25,7 @@
             
             // Validate required fields
             if (!altValue) {
-                $status.removeClass('saving success partial').addClass('error').text('Alt text is required');
+                $status.removeClass('saving success').addClass('error').text('Alt text is required');
                 return;
             }
             
@@ -48,21 +48,14 @@
                 success: function(response) {
                     if (response.success) {
                         var data = response.data;
-                        
-                        if (data.partial) {
-                            // Partial success
-                            $status.removeClass('saving error').addClass('partial').text(data.message);
-                        } else {
-                            // Full success
-                            $status.removeClass('saving error partial').addClass('success').text(data.message);
-                        }
+                        $status.removeClass('saving error').addClass('success').text(data.message);
                         
                         // Clear status after 3 seconds
                         setTimeout(function() {
-                            $status.removeClass('success partial').text('');
+                            $status.removeClass('success').text('');
                         }, 3000);
                     } else {
-                        $status.removeClass('saving success partial').addClass('error').text(response.data || pdmBulkAlt.messages.error);
+                        $status.removeClass('saving success').addClass('error').text(response.data || pdmBulkAlt.messages.error);
                     }
                 },
                 error: function(jqXHR, textStatus, errorThrown) {
@@ -86,7 +79,7 @@
         // Clear status when user starts typing in any field
         $(document).on('input', '.pdm-attribute-input', function() {
             var $wrapper = $(this).closest('.pdm-bulk-attributes-wrapper');
-            $wrapper.find('.pdm-save-status').removeClass('success error saving partial').text('');
+            $wrapper.find('.pdm-save-status').removeClass('success error saving').text('');
         });
         
         // Handle quick edit functionality
