@@ -95,6 +95,16 @@ class PDM_Bulk_Alt_Admin {
                 echo 'placeholder="Enter caption...">' . esc_textarea($caption) . '</textarea>';
                 echo '</div>';
                 
+                // Description Field
+                $description = get_post_meta($post_id, '_wp_attachment_image_description', true);
+                echo '<div class="pdm-attribute-row">';
+                echo '<label class="pdm-attribute-label">Description (optional):</label>';
+                echo '<textarea class="pdm-attribute-input pdm-textarea" ';
+                echo 'data-field-type="description" ';
+                echo 'rows="3" ';
+                echo 'placeholder="Enter description...">' . esc_textarea($description) . '</textarea>';
+                echo '</div>';
+                
                 // Single Save Button at bottom
                 echo '<div class="pdm-save-row">';
                 echo '<button type="button" class="pdm-save-all-attributes button-primary">';
@@ -143,6 +153,7 @@ class PDM_Bulk_Alt_Admin {
         $alt_text = sanitize_textarea_field($_POST['alt_text']);
         $title = sanitize_text_field($_POST['title']);
         $caption = sanitize_textarea_field($_POST['caption']);
+        $description = sanitize_textarea_field($_POST['description']);
         
         // Validate required fields
         if (empty(trim($alt_text))) {
@@ -202,6 +213,22 @@ class PDM_Bulk_Alt_Admin {
                 }
             } else {
                 $results['caption'] = 'unchanged';
+            }
+        }
+        
+        // Update description (only if provided and different)
+        if (!empty($description)) {
+            $current_description = get_post_meta($attachment_id, '_wp_attachment_image_description', true);
+            if ($current_description !== $description) {
+                $description_result = update_post_meta($attachment_id, '_wp_attachment_image_description', $description);
+                if ($description_result !== false) {
+                    $updated_fields[] = 'Description';
+                    $results['description'] = 'updated';
+                } else {
+                    $results['description'] = 'unchanged';
+                }
+            } else {
+                $results['description'] = 'unchanged';
             }
         }
         

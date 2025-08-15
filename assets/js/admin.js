@@ -22,6 +22,7 @@
             var titleValue = $wrapper.find('.pdm-attribute-input[data-field-type="title"]').val().trim();
             var altValue = $wrapper.find('.pdm-attribute-input[data-field-type="alt"]').val().trim();
             var captionValue = $wrapper.find('.pdm-attribute-input[data-field-type="caption"]').val().trim();
+            var descriptionValue = $wrapper.find('.pdm-attribute-input[data-field-type="description"]').val().trim();
             
             // Validate required fields
             if (!altValue) {
@@ -43,6 +44,7 @@
                     title: titleValue,
                     alt_text: altValue,
                     caption: captionValue,
+                    description: descriptionValue,
                     nonce: pdmBulkAlt.nonce
                 },
                 success: function(response) {
