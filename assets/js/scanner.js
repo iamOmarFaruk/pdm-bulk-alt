@@ -44,7 +44,7 @@
         $('#pdm-scan-results').hide();
         
         updateProgress(0, pdmScanner.messages.scanning);
-        updateStats(0, 0, 0);
+        updateStats(scanData.totalScanned, scanData.totalImagesFound, scanData.totalUpdated);
         
         // Start scanning
         scanContent();
@@ -127,9 +127,9 @@
         
         // Show completion message
         if (scanData.totalUpdated > 0) {
-            showSuccess('Scan completed! ' + scanData.totalUpdated + ' alt tags were added to your images.');
+            showSuccess('Scan completed! ' + scanData.totalUpdated + ' images were synced from your media library.');
         } else {
-            showSuccess('Scan completed! No images needed alt tag updates.');
+            showSuccess('Scan completed! All images are already synced with your media library.');
         }
     }
     
@@ -147,7 +147,7 @@
     
     function displayResults() {
         if (scanData.results.length === 0) {
-            $('#pdm-results-table').html('<div class="pdm-no-results">No images without alt tags were found.</div>');
+            $('#pdm-results-table').html('<div class="pdm-no-results">All images are already synced with your media library.</div>');
         } else {
             var html = buildResultsTable();
             $('#pdm-results-table').html(html);
@@ -171,12 +171,12 @@
         html += '</div>';
         html += '<div class="pdm-stat-box">';
         html += '<span class="pdm-stat-number">' + scanData.totalUpdated + '</span>';
-        html += '<span class="pdm-stat-label">Alt Tags Added</span>';
+        html += '<span class="pdm-stat-label">Images Synced</span>';
         html += '</div>';
         html += '</div>';
         
         if (scanData.results.length === 0) {
-            html += '<div class="pdm-no-results">No images without alt tags were found that could be updated.</div>';
+            html += '<div class="pdm-no-results">All images are already synced with your media library.</div>';
             return html;
         }
         
@@ -187,9 +187,9 @@
         html += '<th>Page/Post</th>';
         html += '<th>Type</th>';
         html += '<th>Image</th>';
-        html += '<th>Image Type</th>';
-        html += '<th>Original Alt</th>';
-        html += '<th>Alt Text Added</th>';
+        html += '<th>Title Tag</th>';
+        html += '<th>Alt in Media Library</th>';
+        html += '<th>Alt in Page</th>';
         html += '<th>Status</th>';
         html += '</tr>';
         html += '</thead>';
@@ -220,30 +220,46 @@
                     html += '<br><small>' + image.src.split('/').pop() + '</small>';
                     html += '</td>';
                     
-                    // Image type
+                    // Title tag (media library vs page)
                     html += '<td>';
-                    if (image.type === 'divi') {
-                        html += '<span style="color: #7c3aed; font-weight: 600;">Divi Shortcode</span>';
+                    if (image.title_in_media && image.title_in_page) {
+                        if (image.title_in_media === image.title_in_page) {
+                            html += '<span class="pdm-sync-status">✓ Synced</span><br>';
+                            html += '<span class="pdm-title-text">' + image.title_in_media + '</span>';
+                        } else {
+                            html += '<strong>Media:</strong> ' + (image.title_in_media || '<em>Empty</em>') + '<br>';
+                            html += '<strong>Page:</strong> ' + (image.title_in_page || '<em>Empty</em>');
+                        }
+                    } else if (image.title_in_media) {
+                        html += '<strong>Media:</strong> ' + image.title_in_media + '<br>';
+                        html += '<strong>Page:</strong> <em>Empty</em>';
+                    } else if (image.title_in_page) {
+                        html += '<strong>Media:</strong> <em>Empty</em><br>';
+                        html += '<strong>Page:</strong> ' + image.title_in_page;
                     } else {
-                        html += '<span style="color: #059669; font-weight: 600;">HTML Tag</span>';
+                        html += '<em>Empty in media library</em>';
                     }
                     html += '</td>';
                     
-                    // Original alt
+                    // Alt in media library
                     html += '<td>';
-                    if (image.original_alt) {
-                        html += '<span class="pdm-alt-text">' + image.original_alt + '</span>';
+                    if (image.alt_in_media) {
+                        html += '<span class="pdm-alt-text">' + image.alt_in_media + '</span>';
                     } else {
-                        html += '<em style="color: #dc3232;">Empty or missing</em>';
+                        html += '<em style="color: #dc3232;">Empty in media library</em>';
                     }
                     html += '</td>';
                     
-                    // Alt text added
+                    // Alt in page
                     html += '<td>';
-                    if (image.alt_added) {
-                        html += '<span class="pdm-alt-text">' + image.alt_added + '</span>';
+                    if (image.alt_in_page) {
+                        html += '<span class="pdm-alt-text">' + image.alt_in_page + '</span>';
                     } else {
-                        html += '<em>None</em>';
+                        if (!image.alt_in_media) {
+                            html += '<em style="color: #999;">-</em>';
+                        } else {
+                            html += '<em style="color: #dc3232;">Not set on page</em>';
+                        }
                     }
                     html += '</td>';
                     
@@ -251,14 +267,25 @@
                     html += '<td>';
                     if (image.success) {
                         if (image.already_synced) {
-                            html += '<span class="pdm-status-success">✓ Already Synced</span>';
+                            html += '<span class="pdm-status-success">✓ Synced</span>';
                         } else {
-                            html += '<span class="pdm-status-success">✓ Updated</span>';
+                            html += '<span class="pdm-status-success">✓ Synced</span>';
                         }
                     } else {
-                        html += '<span class="pdm-status-error">✗ Failed</span>';
-                        if (image.reason) {
-                            html += '<br><small>' + image.reason + '</small>';
+                        if (image.reason && image.reason.indexOf('Empty in media library') !== -1) {
+                            html += '<span class="pdm-status-empty">— Empty in media library</span><br>';
+                            html += '<small>Add data to media library to sync</small>';
+                        } else if (image.reason && image.reason.indexOf('Alt tag empty') !== -1) {
+                            html += '<span class="pdm-status-empty">— Alt tag empty in media library</span><br>';
+                            html += '<small>Add alt text in media library to sync</small>';
+                        } else if (image.reason && image.reason.indexOf('Title empty') !== -1) {
+                            html += '<span class="pdm-status-empty">— Title empty in media library</span><br>';
+                            html += '<small>Add title in media library to sync</small>';
+                        } else if (image.reason && image.reason.indexOf('Image not found') !== -1) {
+                            html += '<span class="pdm-status-info">ⓘ Image not found in media library</span><br>';
+                            html += '<small>Please upload image to media library first</small>';
+                        } else {
+                            html += '<span class="pdm-status-empty">— No sync needed</span>';
                         }
                     }
                     html += '</td>';

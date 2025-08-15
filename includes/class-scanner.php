@@ -42,12 +42,12 @@ class PDM_Bulk_Alt_Scanner {
         ?>
         <div class="wrap">
             <h1><?php esc_html_e('Set Alt Tags', 'pdm-bulk-alt'); ?></h1>
-            <p><?php esc_html_e('Scan your website and automatically sync all alt tags and title tags with values from your media library. This will update existing alt tags and add missing ones to ensure consistency across your site.', 'pdm-bulk-alt'); ?></p>
+            <p><?php esc_html_e('Scan your website and automatically sync all alt tags and title tags with values from your media library. This ensures all images have consistent data across your site.', 'pdm-bulk-alt'); ?></p>
             
             <div class="pdm-scanner-container">
                 <div class="pdm-scanner-controls">
                     <button id="pdm-start-scan" class="button button-primary button-large">
-                        <?php esc_html_e('Start Scanning', 'pdm-bulk-alt'); ?>
+                        <?php esc_html_e('Scan and Set', 'pdm-bulk-alt'); ?>
                     </button>
                     <button id="pdm-stop-scan" class="button button-secondary" style="display: none;">
                         <?php esc_html_e('Stop Scanning', 'pdm-bulk-alt'); ?>
@@ -65,7 +65,7 @@ class PDM_Bulk_Alt_Scanner {
                     <div class="pdm-scan-stats">
                         <span id="pdm-stats-scanned">0</span> <?php esc_html_e('scanned', 'pdm-bulk-alt'); ?> |
                         <span id="pdm-stats-found">0</span> <?php esc_html_e('images found', 'pdm-bulk-alt'); ?> |
-                        <span id="pdm-stats-updated">0</span> <?php esc_html_e('alt tags added', 'pdm-bulk-alt'); ?>
+                        <span id="pdm-stats-updated">0</span> <?php esc_html_e('images synced', 'pdm-bulk-alt'); ?>
                     </div>
                 </div>
                 
@@ -175,8 +175,17 @@ class PDM_Bulk_Alt_Scanner {
                             
                             $tag_updated = false;
                             $new_img_tag = $img_tag;
+                            $is_already_synced = false;
                             
-                            // Update alt tag if media library has alt text and it's different from current
+                            // Check if already synced (same values in media library and page)
+                            $alt_synced = (empty($alt_text) && empty($image_data['alt_value'])) || 
+                                         (!empty($alt_text) && $alt_text === $image_data['alt_value']);
+                            $title_synced = (empty($title_text) && empty($image_data['title_value'])) || 
+                                           (!empty($title_text) && $title_text === $image_data['title_value']);
+                            
+                            $is_already_synced = $alt_synced && $title_synced && !empty($alt_text); // At least alt must exist
+                            
+                            // Only update if media library has data and it's different from current, or if media library is empty
                             if (!empty($alt_text) && $alt_text !== $image_data['alt_value']) {
                                 $new_img_tag = $this->add_alt_to_image_tag($new_img_tag, $alt_text);
                                 $tag_updated = true;
@@ -188,29 +197,49 @@ class PDM_Bulk_Alt_Scanner {
                                 $tag_updated = true;
                             }
                             
-                            if ($tag_updated && $new_img_tag !== $img_tag) {
-                                $updated_content = str_replace($img_tag, $new_img_tag, $updated_content);
-                                $content_changed = true;
-                                $images_updated++;
-                                
-                                error_log("PDM Debug: Updated HTML image tag successfully");
+                            if ($is_already_synced || ($tag_updated && $new_img_tag !== $img_tag)) {
+                                if ($tag_updated) {
+                                    $updated_content = str_replace($img_tag, $new_img_tag, $updated_content);
+                                    $content_changed = true;
+                                    $images_updated++;
+                                    error_log("PDM Debug: Updated HTML image tag successfully");
+                                }
                                 
                                 $post_images[] = array(
                                     'src' => $image_data['src'],
-                                    'alt_added' => $alt_text,
-                                    'title_added' => $title_text,
+                                    'alt_in_media' => $alt_text,
+                                    'alt_in_page' => !empty($alt_text) ? $alt_text : $image_data['alt_value'],
+                                    'title_in_media' => $title_text,
+                                    'title_in_page' => !empty($title_text) ? $title_text : $image_data['title_value'],
                                     'success' => true,
+                                    'already_synced' => $is_already_synced,
                                     'original_alt' => $image_data['alt_value'],
                                     'original_title' => $image_data['title_value'],
                                     'type' => 'html'
                                 );
                             } else {
-                                error_log("PDM Debug: Failed to update HTML image tag");
+                                error_log("PDM Debug: Cannot sync - missing data in media library");
+                                
+                                // Determine the specific reason for not syncing
+                                $reason = '';
+                                if (empty($alt_text) && empty($title_text)) {
+                                    $reason = __('Empty in media library', 'pdm-bulk-alt');
+                                } elseif (empty($alt_text)) {
+                                    $reason = __('Alt tag empty in media library', 'pdm-bulk-alt');
+                                } elseif (empty($title_text)) {
+                                    $reason = __('Title empty in media library', 'pdm-bulk-alt');
+                                } else {
+                                    $reason = __('No changes needed', 'pdm-bulk-alt');
+                                }
+                                
                                 $post_images[] = array(
                                     'src' => $image_data['src'],
-                                    'alt_added' => '',
+                                    'alt_in_media' => $alt_text,
+                                    'alt_in_page' => $image_data['alt_value'],
+                                    'title_in_media' => $title_text,
+                                    'title_in_page' => $image_data['title_value'],
                                     'success' => false,
-                                    'reason' => __('Could not update image tag', 'pdm-bulk-alt'),
+                                    'reason' => $reason,
                                     'original_alt' => $image_data['alt_value'],
                                     'type' => 'html'
                                 );
@@ -219,7 +248,10 @@ class PDM_Bulk_Alt_Scanner {
                             error_log("PDM Debug: Could not find attachment ID for: " . $image_data['src']);
                             $post_images[] = array(
                                 'src' => $image_data['src'],
-                                'alt_added' => '',
+                                'alt_in_media' => '',
+                                'alt_in_page' => $image_data['alt_value'],
+                                'title_in_media' => '',
+                                'title_in_page' => $image_data['title_value'],
                                 'success' => false,
                                 'reason' => __('Image not found in media library', 'pdm-bulk-alt'),
                                 'original_alt' => $image_data['alt_value'],
@@ -230,32 +262,34 @@ class PDM_Bulk_Alt_Scanner {
                 }
             }
             
-            // Update post content if changes were made
-            if ($content_changed && !empty($post_images)) {
-                $update_result = wp_update_post(array(
-                    'ID' => $post->ID,
-                    'post_content' => $updated_content
-                ));
-                
-                if ($is_divi_post && $update_result) {
-                    // For Divi, also clear the cache
-                    if (function_exists('et_core_page_resource_remove_all')) {
-                        et_core_page_resource_remove_all($post->ID, 'all');
+            // Update post content if changes were made OR add already synced images to results
+            if (!empty($post_images)) {
+                if ($content_changed) {
+                    $update_result = wp_update_post(array(
+                        'ID' => $post->ID,
+                        'post_content' => $updated_content
+                    ));
+                    
+                    if ($is_divi_post && $update_result) {
+                        // For Divi, also clear the cache
+                        if (function_exists('et_core_page_resource_remove_all')) {
+                            et_core_page_resource_remove_all($post->ID, 'all');
+                        }
+                        
+                        // Update Divi's old content backup as well
+                        update_post_meta($post->ID, '_et_pb_old_content', $updated_content);
+                        
+                        // Clear Divi static CSS cache
+                        if (class_exists('ET_Core_PageResource')) {
+                            ET_Core_PageResource::remove_static_resources('all', $post->ID);
+                        }
+                        
+                        // Trigger Divi cache clearing hooks
+                        do_action('et_builder_cache_purge_request', $post->ID);
                     }
                     
-                    // Update Divi's old content backup as well
-                    update_post_meta($post->ID, '_et_pb_old_content', $updated_content);
-                    
-                    // Clear Divi static CSS cache
-                    if (class_exists('ET_Core_PageResource')) {
-                        ET_Core_PageResource::remove_static_resources('all', $post->ID);
-                    }
-                    
-                    // Trigger Divi cache clearing hooks
-                    do_action('et_builder_cache_purge_request', $post->ID);
+                    error_log("PDM Debug: Post content updated for post ID: " . $post->ID . ", Divi: " . ($is_divi_post ? 'yes' : 'no'));
                 }
-                
-                error_log("PDM Debug: Post content updated for post ID: " . $post->ID . ", Divi: " . ($is_divi_post ? 'yes' : 'no'));
                 
                 $results[] = array(
                     'post_id' => $post->ID,
@@ -608,8 +642,17 @@ class PDM_Bulk_Alt_Scanner {
                         
                         $shortcode_updated = false;
                         $new_shortcode = $shortcode;
+                        $is_already_synced = false;
                         
-                        // Update alt tag if media library has alt text and it's different from current
+                        // Check if already synced (same values in media library and page)
+                        $alt_synced = (empty($alt_text) && empty($shortcode_data['alt'])) || 
+                                     (!empty($alt_text) && $alt_text === $shortcode_data['alt']);
+                        $title_synced = (empty($title_text) && empty($shortcode_data['title'])) || 
+                                       (!empty($title_text) && $title_text === $shortcode_data['title']);
+                        
+                        $is_already_synced = $alt_synced && $title_synced && !empty($alt_text); // At least alt must exist
+                        
+                        // Only update if media library has data and it's different from current
                         if (!empty($alt_text) && $alt_text !== $shortcode_data['alt']) {
                             $new_shortcode = $this->add_alt_to_divi_shortcode($new_shortcode, $alt_text);
                             $shortcode_updated = true;
@@ -621,64 +664,68 @@ class PDM_Bulk_Alt_Scanner {
                             $shortcode_updated = true;
                         }
                         
-                        if ($shortcode_updated && $new_shortcode !== $shortcode) {
-                            $updated_content = str_replace($shortcode, $new_shortcode, $updated_content);
-                            $content_changed = true;
-                            
-                            error_log("PDM Debug: Updated Divi shortcode successfully");
+                        if ($is_already_synced || ($shortcode_updated && $new_shortcode !== $shortcode)) {
+                            if ($shortcode_updated) {
+                                $updated_content = str_replace($shortcode, $new_shortcode, $updated_content);
+                                $content_changed = true;
+                                error_log("PDM Debug: Updated Divi shortcode successfully");
+                            }
                             
                             $images[] = array(
                                 'src' => $shortcode_data['src'],
-                                'alt_added' => $alt_text,
-                                'title_added' => $title_text,
+                                'alt_in_media' => $alt_text,
+                                'alt_in_page' => !empty($alt_text) ? $alt_text : $shortcode_data['alt'],
+                                'title_in_media' => $title_text,
+                                'title_in_page' => !empty($title_text) ? $title_text : $shortcode_data['title'],
                                 'success' => true,
+                                'already_synced' => $is_already_synced,
                                 'original_alt' => $shortcode_data['alt'],
                                 'original_title' => $shortcode_data['title'],
                                 'type' => 'divi'
                             );
                         } else {
-                            error_log("PDM Debug: Failed to update Divi shortcode");
+                            error_log("PDM Debug: Cannot sync Divi - missing data in media library");
+                            
+                            // Determine the specific reason for not syncing
+                            $reason = '';
+                            if (empty($alt_text) && empty($title_text)) {
+                                $reason = __('Empty in media library', 'pdm-bulk-alt');
+                            } elseif (empty($alt_text)) {
+                                $reason = __('Alt tag empty in media library', 'pdm-bulk-alt');
+                            } elseif (empty($title_text)) {
+                                $reason = __('Title empty in media library', 'pdm-bulk-alt');
+                            } else {
+                                $reason = __('No changes needed', 'pdm-bulk-alt');
+                            }
+                            
                             $images[] = array(
                                 'src' => $shortcode_data['src'],
-                                'alt_added' => '',
+                                'alt_in_media' => $alt_text,
+                                'alt_in_page' => $shortcode_data['alt'],
+                                'title_in_media' => $title_text,
+                                'title_in_page' => $shortcode_data['title'],
                                 'success' => false,
-                                'reason' => __('Could not update Divi shortcode', 'pdm-bulk-alt'),
+                                'reason' => $reason,
                                 'original_alt' => $shortcode_data['alt'],
                                 'type' => 'divi'
                             );
                         }
-                    } else if (empty($alt_text)) {
-                        error_log("PDM Debug: No alt text in media library for Divi image");
+                    } else {
+                        error_log("PDM Debug: Could not find attachment ID for Divi image: " . $shortcode_data['src']);
                         $images[] = array(
                             'src' => $shortcode_data['src'],
-                            'alt_added' => '',
+                            'alt_in_media' => '',
+                            'alt_in_page' => $shortcode_data['alt'],
+                            'title_in_media' => '',
+                            'title_in_page' => $shortcode_data['title'],
                             'success' => false,
-                            'reason' => __('No alt text in media library', 'pdm-bulk-alt'),
+                            'reason' => __('Image not found in media library', 'pdm-bulk-alt'),
                             'original_alt' => $shortcode_data['alt'],
                             'type' => 'divi'
                         );
-                    } else {
-                        // Alt text matches - no update needed
-                        error_log("PDM Debug: Divi alt text already matches media library");
-                        $images[] = array(
-                            'src' => $shortcode_data['src'],
-                            'alt_added' => $alt_text,
-                            'success' => true,
-                            'original_alt' => $shortcode_data['alt'],
-                            'type' => 'divi',
-                            'already_synced' => true
-                        );
                     }
                 } else {
-                    error_log("PDM Debug: Could not find attachment ID for Divi image: " . $shortcode_data['src']);
-                    $images[] = array(
-                        'src' => $shortcode_data['src'],
-                        'alt_added' => '',
-                        'success' => false,
-                        'reason' => __('Image not found in media library', 'pdm-bulk-alt'),
-                        'original_alt' => $shortcode_data['alt'],
-                        'type' => 'divi'
-                    );
+                    error_log("PDM Debug: Could not parse Divi shortcode data");
                 }
             }
         }

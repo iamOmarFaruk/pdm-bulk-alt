@@ -117,6 +117,26 @@
     font-weight: 600;
 }
 
+.pdm-status-info {
+    color: #0073aa;
+    font-weight: 600;
+}
+
+.pdm-status-empty {
+    color: #999;
+    font-weight: 600;
+}
+
+.pdm-sync-status {
+    color: #46b450;
+    font-weight: 600;
+}
+
+.pdm-title-text {
+    font-style: italic;
+    color: #666;
+}
+
 .pdm-post-link {
     text-decoration: none;
     color: #0073aa;
